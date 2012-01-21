@@ -1,0 +1,23 @@
+K 25
+svn:wc:ra_dav:version-url
+V 88
+/svn/!svn/ver/202/trunk/Foothill_research_project_2011/code_for_CPU_conference/CUDA_code
+END
+Makefile.NIU_DESKTOP
+K 25
+svn:wc:ra_dav:version-url
+V 109
+/svn/!svn/ver/202/trunk/Foothill_research_project_2011/code_for_CPU_conference/CUDA_code/Makefile.NIU_DESKTOP
+END
+Calculate_arc_length.cu
+K 25
+svn:wc:ra_dav:version-url
+V 112
+/svn/!svn/ver/198/trunk/Foothill_research_project_2011/code_for_CPU_conference/CUDA_code/Calculate_arc_length.cu
+END
+Calculate_arc_length_two_datasets.cu
+K 25
+svn:wc:ra_dav:version-url
+V 125
+/svn/!svn/ver/202/trunk/Foothill_research_project_2011/code_for_CPU_conference/CUDA_code/Calculate_arc_length_two_datasets.cu
+END
