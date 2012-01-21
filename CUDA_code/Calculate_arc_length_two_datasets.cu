@@ -9,13 +9,23 @@
 using namespace std;
 
 #define SUBMATRIX_SIZE 10000
-#define NUM_BIN 500
-#define HIST_MIN 0.0
-#define HIST_MAX 3.5 
+//#define NUM_BIN 5000
+//#define HIST_MIN 0.0
+//#define HIST_MAX 3.5 
+#define NUM_BIN 27 // for log binning
+#define HIST_MIN 0.0 // for degrees
+#define HIST_MAX 100.0 // for degrees
+
+#define CONV_FACTOR 57.2957795 // 180/pi
+
+//float bin_edges[30] = {0.001000,0.001585,0.002512,0.003981,0.006310,0.010000,0.010000,0.015849,0.025119,0.039811,0.063096,0.100000,0.100000,0.158489,0.251189,0.398107,0.630957,1.000000,1.000000,1.584893,2.511886,3.981072,6.309573,10.000000,10.000000,15.848932,25.118864,39.810717,63.095734,100.000000};
 
 ////////////////////////////////////////////////////////////////////////
-__global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, int yind, int *dev_hist)
+__global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, int yind, int *dev_hist, float* dev_bin_edges)
 {
+
+    //float bin_edges[30] = {0.001000,0.001585,0.002512,0.003981,0.006310,0.010000,0.010000,0.015849,0.025119,0.039811,0.063096,0.100000,0.100000,0.158489,0.251189,0.398107,0.630957,1.000000,1.000000,1.584893,2.511886,3.981072,6.309573,10.000000,10.000000,15.848932,25.118864,39.810717,63.095734,100.000000};
+    float bin_edges[NUM_BIN] = {0.0000,0.001000,0.001585,0.002512,0.003981,0.006310,0.010000,0.015849,0.025119,0.039811,0.063096,0.100000,0.158489,0.251189,0.398107,0.630957,1.000000,1.584893,2.511886,3.981072,6.309573,10.000000,15.848932,25.118864,39.810717,63.095734,100.000000};
 
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int thread_idx = idx;
@@ -25,7 +35,7 @@ __global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, i
     float cos_d0 = cos(delta0), sin_d0 = sin(delta0), dist;
 
     int ymax = yind + SUBMATRIX_SIZE;
-    int bin_index; 
+    int bin_index = 0; 
     int offset = 0;
 
     float a_diff, sin_a_diff, cos_a_diff;
@@ -33,7 +43,8 @@ __global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, i
 
     for(int i=yind; i<ymax; i++)
     {
-        if(idx > i)
+        //if(idx > i) ///////// CHECK THIS
+        //if(idx >= i)
         {
             a_diff = a1[i] - alpha;
             
@@ -53,12 +64,28 @@ __global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, i
             
             //dist = atan(num);  
             dist = atan2(numer,denom);  
+            dist *= CONV_FACTOR;  // Convert to degrees
+
             if(dist < HIST_MIN)
                 bin_index = 0; 
             else if(dist >= HIST_MAX)
                 bin_index = NUM_BIN + 1;
             else
-                bin_index = int(((dist - HIST_MIN) * NUM_BIN / HIST_MAX) +1);    
+                {
+                    //bin_index = int(((dist - HIST_MIN) * NUM_BIN / HIST_MAX) +1);    
+                    bin_index = 0;
+                    for (int j=0;j<NUM_BIN-1;j++)
+                    {
+                        //bin_index = 5;
+                        //if (dist>=0.1*j && dist<0.1*(j+1))
+                        //if (dist>=dev_bin_edges[j] && dist<dev_bin_edges[j+1])
+                        if (dist>=bin_edges[j] && dist<bin_edges[j+1])
+                        {
+                            bin_index = j+1;
+                            break;
+                        }
+                    }
+                }
 
             offset = ((NUM_BIN+2)*thread_idx);
             bin_index += offset;
@@ -147,6 +174,24 @@ int main(int argc, char **argv)
     ///////////////////////////////////////////////////////////////////////////
 
     int *hist, *dev_hist;
+    // Original
+    //int size_hist = SUBMATRIX_SIZE * (NUM_BIN+2);
+    //int size_hist_bytes = size_hist*sizeof(int);
+
+    // Log binning
+    //float h_bin_edges[30] = {0.001000,0.001585,0.002512,0.003981,0.006310,0.010000,0.010000,0.015849,0.025119,0.039811,0.063096,0.100000,0.100000,0.158489,0.251189,0.398107,0.630957,1.000000,1.000000,1.584893,2.511886,3.981072,6.309573,10.000000,10.000000,15.848932,25.118864,39.810717,63.095734,100.000000};
+    float h_bin_edges[NUM_BIN] = {0.0000,0.001000,0.001585,0.002512,0.003981,0.006310,0.010000,0.015849,0.025119,0.039811,0.063096,0.100000,0.158489,0.251189,0.398107,0.630957,1.000000,1.584893,2.511886,3.981072,6.309573,10.000000,15.848932,25.118864,39.810717,63.095734,100.000000};
+    for (int i=0;i<NUM_BIN;i++)
+    {
+        printf("%d %f\n",i,h_bin_edges[i]);
+    }
+    printf("\n");
+    float *dev_bin_edges;
+    cudaMalloc((void **) &dev_bin_edges, (NUM_BIN*sizeof(float)));
+    cudaMemset(dev_bin_edges, 0, NUM_BIN);
+    cudaMemcpy(dev_bin_edges, h_bin_edges, NUM_BIN, cudaMemcpyHostToDevice );
+    //int nbins = 30;
+
     int size_hist = SUBMATRIX_SIZE * (NUM_BIN+2);
     int size_hist_bytes = size_hist*sizeof(int);
 
@@ -214,7 +259,7 @@ int main(int argc, char **argv)
 
                 cudaMemset(dev_hist,0,size_hist_bytes);
 
-                distance<<<grid,block>>>(d_alpha0, d_delta0,d_alpha1, d_delta1, x, y, dev_hist);
+                distance<<<grid,block>>>(d_alpha0, d_delta0,d_alpha1, d_delta1, x, y, dev_hist, dev_bin_edges);
                 cudaMemcpy(hist, dev_hist, size_hist_bytes, cudaMemcpyDeviceToHost);
 
 
@@ -239,9 +284,15 @@ int main(int argc, char **argv)
     float bins_mid = 0;
 
     fprintf(outfile, "%s %s\n", "Angular Distance(radians)","Number of Entries");      
-    for(int k=0; k<NUM_BIN+2; k++)
+    for(int k=0; k<NUM_BIN+1; k++)
     {
-          bins_mid = bin_width*(k - 0.5);
+       //bins_mid = bin_width*(k - 0.5);
+
+       float lo = h_bin_edges[k];
+       float hi = h_bin_edges[k+1];
+
+       bins_mid = (hi+lo)/2.0;
+
        fprintf(outfile, "%.3e %s %lu \n", bins_mid, ",",  hist_array[k]);
        total += hist_array[k];
 
@@ -263,6 +314,7 @@ int main(int argc, char **argv)
     cudaFree(d_alpha1);
     cudaFree(d_delta1);  
     cudaFree(dev_hist);
+    cudaFree(dev_bin_edges);
 
     return 0;
 }  
