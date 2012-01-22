@@ -100,7 +100,7 @@ def main():
                 print i
 
             if len(row)>1 and i>0 and i%plot_every_nth_point==0:
-                print "%d %f %f" % (i,float(row[0]),float(row[1]))
+                #print "%d %f %f" % (i,float(row[0]),float(row[1]))
                 pts[j][0].append(float(row[0]))
                 pts[j][1].append(float(row[1]))
                 # pts[1].append(log10(float(row[y_index])))
@@ -116,30 +116,42 @@ def main():
     xpts = []
     ypts = []
 
+    #ngalaxies = 40000.0
+    ngalaxies = 160000.0
+
+    dd_norm = ((ngalaxies*ngalaxies)-ngalaxies)/2.0
+    rr_norm = ((ngalaxies*ngalaxies)-ngalaxies)/2.0
+    dr_norm = (ngalaxies*ngalaxies)
+
+    print dd_norm 
+    print rr_norm 
+    print dr_norm 
+
     npts = len(pts[0][0])
     for i in range(0,npts):
 
-        print pts[0][0][i]
+        #print pts[0][0][i]
 
-        dd = pts[0][1][i]/2.0
-        rr = pts[1][1][i]/2.0
-        dr = pts[2][1][i]
+        dd = pts[0][1][i]/dd_norm
+        rr = pts[1][1][i]/rr_norm
+        dr = pts[2][1][i]/dr_norm
 
         w = 0.0 
         if rr>0:
 
             #w = (2*dd-(2*dr)+2*rr)/(2*rr)
-            w = (dd-(1*dr)+rr)/(rr)
+            w = (dd-(2*dr)+rr)/(rr)
 
             xpts.append(pts[0][0][i])
-            ypts.append(w)
+            #ypts.append(w)
+            ypts.append(w*(pts[0][0][i]**0.79))
             #print "%f %f" % (degrees(pts[0][0][i]),w)
 
     print len(xpts)
     print len(ypts)
-    print xpts
-    print ypts
-    my_plot = scatter(xpts, ypts, s = 10)
+    #print xpts
+    #print ypts
+    my_plot = scatter(xpts, ypts, s=30)
     
     #subplots[0].xaxis.set_major_formatter(formatter)
 
@@ -148,7 +160,7 @@ def main():
     subplots[0].set_xscale('log')
     subplots[0].set_yscale('log')
    
-    #subplots[0].set_xlim(0.01,60)
+    subplots[0].set_xlim(0.01,100)
     subplots[0].set_ylim(0.01,100)
 
  

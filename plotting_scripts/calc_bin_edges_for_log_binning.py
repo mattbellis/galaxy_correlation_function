@@ -3,7 +3,7 @@ import numpy as np
 output = "{0.0000,"
 npts = 1
 for i in range(-3,2):
-    x = np.logspace(i, i+1, 6)
+    x = np.logspace(i, i+1, 8)
 
     npts += len(x)-1
 
