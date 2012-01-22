@@ -7,3 +7,39 @@ Using data from the 2MASS survey. Can download from
 
 http://tdc-www.cfa.harvard.edu/2mrs/
 
+################################################################################
+# Preparing the data.
+################################################################################
+
+# Download the data.
+
+Go to the following url.
+
+http://tdc-www.cfa.harvard.edu/2mrs/
+
+``Download the 2MRS catalog as a gzipped tar archive (40 MB)."
+
+Place this in a ``data" directory (if it doesn't already
+exist) and ungzip it. 
+
+mkdir data
+cd data
+mkdir 2MASS
+mkdir 2MASS_study
+cd 2MASS
+mv <path to file>/2mrs_v240.tgz .
+tar -zxvf 2mrs_v240.tgz
+
+# Prepare the data
+
+Parse out only the RA and Dec and convert to radians.
+We make use of one of the python helper scripts for this.
+
+cd catalog
+../../../parse_real_astro_data/parse_RA_Decl_and_RedShift.py 2mrs_1175_done.dat ../../2MASS_study/2MASS_40k_RA_Dec.csv
+
+# Generate some appropriate Monte Carlo data. Use our helper file with the similar swath cut out. 
+cd generating_MC
+sh command_we_used_to_generate_the_random_data_for_comparison_with_the_slice_taken_out.sh
+mv MonteCarlo_40k_RA_Dec.csv ../data/2MASS_study/
+

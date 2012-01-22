@@ -13,6 +13,7 @@ using namespace std;
 //#define HIST_MIN 0.0
 //#define HIST_MAX 3.5 
 #define NUM_BIN 27 // for log binning
+//#define NUM_BIN 37 // for log binning
 #define HIST_MIN 0.0 // for degrees
 #define HIST_MAX 100.0 // for degrees
 
@@ -21,11 +22,17 @@ using namespace std;
 //float bin_edges[30] = {0.001000,0.001585,0.002512,0.003981,0.006310,0.010000,0.010000,0.015849,0.025119,0.039811,0.063096,0.100000,0.100000,0.158489,0.251189,0.398107,0.630957,1.000000,1.000000,1.584893,2.511886,3.981072,6.309573,10.000000,10.000000,15.848932,25.118864,39.810717,63.095734,100.000000};
 
 ////////////////////////////////////////////////////////////////////////
-__global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, int yind, int *dev_hist, float* dev_bin_edges)
+__global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, int yind, int *dev_hist, float* dev_bin_edges, bool two_different_files=1)
 {
 
     //float bin_edges[30] = {0.001000,0.001585,0.002512,0.003981,0.006310,0.010000,0.010000,0.015849,0.025119,0.039811,0.063096,0.100000,0.100000,0.158489,0.251189,0.398107,0.630957,1.000000,1.000000,1.584893,2.511886,3.981072,6.309573,10.000000,10.000000,15.848932,25.118864,39.810717,63.095734,100.000000};
+
+    // For 27
     float bin_edges[NUM_BIN] = {0.0000,0.001000,0.001585,0.002512,0.003981,0.006310,0.010000,0.015849,0.025119,0.039811,0.063096,0.100000,0.158489,0.251189,0.398107,0.630957,1.000000,1.584893,2.511886,3.981072,6.309573,10.000000,15.848932,25.118864,39.810717,63.095734,100.000000};
+
+    // For 37
+    //float bin_edges[NUM_BIN] = {0.0000,0.001000,0.001389,0.001931,0.002683,0.003728,0.005179,0.007197,0.010000,0.013895,0.019307,0.026827,0.037276,0.051795,0.071969,0.100000,0.138950,0.193070,0.268270,0.372759,0.517947,0.719686,1.000000,1.389495,1.930698,2.682696,3.727594,5.179475,7.196857,10.000000,13.894955,19.306977,26.826958,37.275937,51.794747,71.968567,100.000000};
+
 
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int thread_idx = idx;
@@ -41,10 +48,22 @@ __global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, i
     float a_diff, sin_a_diff, cos_a_diff;
     float cos_d1, sin_d1, numer, denom, mult1, mult2;    
 
+    bool do_calc = 1;
     for(int i=yind; i<ymax; i++)
     {
+        if (two_different_files)
+        {
+            do_calc = 1;
+        }
+        else // Doing the same file
+        {
+            if(idx > i)
+                do_calc=1;
+            else
+                do_calc=0;
+        }
         //if(idx > i) ///////// CHECK THIS
-        //if(idx >= i)
+        if (do_calc)
         {
             a_diff = a1[i] - alpha;
             
@@ -124,6 +143,13 @@ int main(int argc, char **argv)
     infile1 = fopen(argv[2],"r");
     outfile = fopen(argv[3], "w");
 
+    bool two_different_files = 1;
+    if (strcmp(argv[1],argv[2])==0)
+    {
+        two_different_files = 0;
+        printf("Using the same file!\n");
+    }
+
     //////////////////////////////////////////////////////////////////////
     // Read in the cluster_data file
     ////////////////////////////////////////////////////////////////////////////
@@ -180,12 +206,20 @@ int main(int argc, char **argv)
 
     // Log binning
     //float h_bin_edges[30] = {0.001000,0.001585,0.002512,0.003981,0.006310,0.010000,0.010000,0.015849,0.025119,0.039811,0.063096,0.100000,0.100000,0.158489,0.251189,0.398107,0.630957,1.000000,1.000000,1.584893,2.511886,3.981072,6.309573,10.000000,10.000000,15.848932,25.118864,39.810717,63.095734,100.000000};
+
+    // For 27 bins
     float h_bin_edges[NUM_BIN] = {0.0000,0.001000,0.001585,0.002512,0.003981,0.006310,0.010000,0.015849,0.025119,0.039811,0.063096,0.100000,0.158489,0.251189,0.398107,0.630957,1.000000,1.584893,2.511886,3.981072,6.309573,10.000000,15.848932,25.118864,39.810717,63.095734,100.000000};
+
+    // For 37 bins
+    //float h_bin_edges[NUM_BIN] = {0.0000,0.001000,0.001389,0.001931,0.002683,0.003728,0.005179,0.007197,0.010000,0.013895,0.019307,0.026827,0.037276,0.051795,0.071969,0.100000,0.138950,0.193070,0.268270,0.372759,0.517947,0.719686,1.000000,1.389495,1.930698,2.682696,3.727594,5.179475,7.196857,10.000000,13.894955,19.306977,26.826958,37.275937,51.794747,71.968567,100.000000};
+
+    /*
     for (int i=0;i<NUM_BIN;i++)
     {
         printf("%d %f\n",i,h_bin_edges[i]);
     }
     printf("\n");
+    */
     float *dev_bin_edges;
     cudaMalloc((void **) &dev_bin_edges, (NUM_BIN*sizeof(float)));
     cudaMemset(dev_bin_edges, 0, NUM_BIN);
@@ -259,7 +293,7 @@ int main(int argc, char **argv)
 
                 cudaMemset(dev_hist,0,size_hist_bytes);
 
-                distance<<<grid,block>>>(d_alpha0, d_delta0,d_alpha1, d_delta1, x, y, dev_hist, dev_bin_edges);
+                distance<<<grid,block>>>(d_alpha0, d_delta0,d_alpha1, d_delta1, x, y, dev_hist, dev_bin_edges, two_different_files);
                 cudaMemcpy(hist, dev_hist, size_hist_bytes, cudaMemcpyDeviceToHost);
 
 

@@ -4,7 +4,8 @@ import sys
 from numpy import*
 from math import pi
 infilename = sys.argv[1]
-num_lines=40000
+#num_lines=40000
+num_lines=160000
 Radian = pi / 180
 infile = open(infilename,'r')
 
