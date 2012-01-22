@@ -1,0 +1,15 @@
+# Makefile
+#
+# author      : Matt Bellis
+# date        : Jan., 2012
+# description : generic Makefile for making cuda programs
+#
+
+# compilers
+CC              := g++
+
+%: %.cc
+	$(CC) -o $@ $@.cc
+
+clean:
+	rm -f Calculate_arc_length_two_datasets_C_version *.o *.cu_o *.cubin
