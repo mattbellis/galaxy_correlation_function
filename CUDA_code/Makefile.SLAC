@@ -1,0 +1,15 @@
+# Makefile
+#
+# author      : Matt Bellis
+# date        : Jan., 2012
+# description : generic Makefile for making cuda programs
+#
+
+# compilers
+NVCC              := nvcc 
+
+%: %.cu
+	$(NVCC) -o $@ $@.cu
+
+clean:
+	rm -f Calculate_arc_length_two_datasets Calculate_arc_length *.o *.cu_o *.cubin
