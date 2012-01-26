@@ -200,9 +200,9 @@ def main():
 
     b_x_pts = []
     b_w_pts = []
-    y_err_lo = []
-    y_err_hi = []
-    for j in range(0,24):
+    yerr_lo = []
+    yerr_hi = []
+    for j in range(0,28):
         b_w_pts.append([])
         for i in range(0,max_samples):
 
@@ -220,10 +220,14 @@ def main():
 
         b_w_pts[j].sort()
 
-        y_err_lo.append(b_w_pts[j][lo_ci_index])
-        y_err_hi.append(b_w_pts[j][hi_ci_index])
+        print "-------"
+        print xpts 
+        print b_x_pts
+        print len(b_x_pts)
 
-
+        if b_x_pts[j] in xpts:
+            yerr_lo.append(b_w_pts[j][lo_ci_index])
+            yerr_hi.append(b_w_pts[j][hi_ci_index])
 
 
     ############################################################################
@@ -231,12 +235,18 @@ def main():
     ############################################################################
     print len(xpts)
     print len(ypts)
-    print len(y_err_lo)
-    print len(y_err_hi)
-    print y_err_lo
-    print y_err_hi
-    #my_plot = scatter(xpts, ypts, yerr=(y_err_lo,y_err_hi), s=30)
-    my_plot = errorbar(xpts, ypts, yerr=(y_err_lo,y_err_hi),fmt='o')
+    print len(yerr_lo)
+    print len(yerr_hi)
+    print "Points ----------------"
+    print xpts
+    print ypts
+    print yerr_lo
+    print yerr_hi
+    for i in range(len(xpts)):
+            print "%f %f %f %f" % (xpts[i], ypts[i], yerr_lo[i], yerr_hi[i])
+
+    #my_plot = scatter(xpts, ypts, yerr=(yerr_lo,yerr_hi), s=30)
+    my_plot = errorbar(xpts, ypts, yerr=(yerr_lo,yerr_hi),fmt='o')
     #my_plot = errorbar(xpts, ypts)
     
     #formatter = ScalarFormatter()
