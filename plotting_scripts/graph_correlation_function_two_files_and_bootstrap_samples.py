@@ -135,6 +135,10 @@ def main():
 
         x = pts[0][0][i]
 
+        if (x>0.008154 and x<0.008156) or (x>0.012919 and x<0.012921):
+            print "POINT!"
+            print "%f %f %f" % (dd,rr,dr)
+
         w = 0.0
         if rr>0:
 
@@ -163,7 +167,7 @@ def main():
         filename1 = "../data/2MASS_study/bootstrapping_output/output_RR_40k_bins6_%04d.dat" % (k)
         filename2 = "../data/2MASS_study/bootstrapping_output/output_DR_40k_bins6_%04d.dat" % (k)
 
-        print filename0
+        #print filename0
 
         infiles[0] = csv.reader(open(filename0, 'rb'), delimiter=',', quotechar='#')
         infiles[1] = csv.reader(open(filename1, 'rb'), delimiter=',', quotechar='#')
@@ -177,8 +181,10 @@ def main():
             i = 0
             for row in infiles[j]:
                 #print row
+                '''
                 if i%10000==0:
                     print i
+                '''
 
                 if len(row)>1 and i>0 and i%plot_every_nth_point==0:
                     #print "%d %f %f" % (i,float(row[0]),float(row[1]))
@@ -220,33 +226,47 @@ def main():
 
         b_w_pts[j].sort()
 
-        print "-------"
-        print xpts 
-        print b_x_pts
-        print len(b_x_pts)
+        x=b_x_pts[j]
+        if (x>0.008154 and x<0.008156) or (x>0.012919 and x<0.012921):
+            print b_w_pts[j]
+
+        #print "-------"
+        #print xpts 
+        #print b_x_pts
+        #print len(b_x_pts)
 
         if b_x_pts[j] in xpts:
-            yerr_lo.append(b_w_pts[j][lo_ci_index])
+            if b_w_pts[j][lo_ci_index] == 0.0:
+                yerr_lo.append(b_w_pts[j][hi_ci_index])
+            else:
+                yerr_lo.append(b_w_pts[j][lo_ci_index])
+
             yerr_hi.append(b_w_pts[j][hi_ci_index])
 
 
     ############################################################################
     # Build the plot
     ############################################################################
-    print len(xpts)
-    print len(ypts)
-    print len(yerr_lo)
-    print len(yerr_hi)
-    print "Points ----------------"
-    print xpts
-    print ypts
-    print yerr_lo
-    print yerr_hi
+    #print len(xpts)
+    #print len(ypts)
+    #print len(yerr_lo)
+    #print len(yerr_hi)
+    #print "Points ----------------"
+    #print xpts
+    #print ypts
+    #print yerr_lo
+    #print yerr_hi
+    yerr = [[],[]]
+    for lo,hi,p in zip(yerr_lo,yerr_hi,ypts):
+        yerr[0].append(abs(p-lo))
+        yerr[1].append(abs(p-hi))
+
+
     for i in range(len(xpts)):
             print "%f %f %f %f" % (xpts[i], ypts[i], yerr_lo[i], yerr_hi[i])
 
     #my_plot = scatter(xpts, ypts, yerr=(yerr_lo,yerr_hi), s=30)
-    my_plot = errorbar(xpts, ypts, yerr=(yerr_lo,yerr_hi),fmt='o')
+    my_plot = errorbar(xpts, ypts, yerr=(yerr[0],yerr[1]),fmt='o')
     #my_plot = errorbar(xpts, ypts)
     
     #formatter = ScalarFormatter()
