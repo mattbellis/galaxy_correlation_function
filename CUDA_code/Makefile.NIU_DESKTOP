@@ -5,8 +5,8 @@
 # discription : generic Makefile for making cuda programs
 #
 #BIN               := a.out
-BIN               := Calculate_arc_length
-#BIN               := Calculate_arc_length_two_datasets
+#BIN               := Calculate_arc_length
+BIN               := Calculate_arc_length_two_datasets
 
 SDK_INSTALL_PATH  := /home/bellis/NVIDIA_GPU_Computing_SDK
 CUDA_INSTALL_PATH := /usr/
@@ -28,8 +28,8 @@ NVCC              := $(CUDA_INSTALL_PATH)/bin/nvcc -arch sm_11 $(COMMONFLAGS)
 
 # files
 CPP_SOURCES       := 
-CU_SOURCES        := Calculate_arc_length.cu
-#CU_SOURCES        := Calculate_arc_length_two_datasets.cu
+#CU_SOURCES        := Calculate_arc_length.cu
+CU_SOURCES        := Calculate_arc_length_two_datasets.cu
 HEADERS           := $(wildcard *.h)
 CPP_OBJS          := $(patsubst %.cpp, %.o, $(CPP_SOURCES))
 CU_OBJS           := $(patsubst %.cu, %.cu_o, $(CU_SOURCES))

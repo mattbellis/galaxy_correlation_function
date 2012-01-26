@@ -202,7 +202,7 @@ def main():
     b_w_pts = []
     y_err_lo = []
     y_err_hi = []
-    for j in range(0,20):
+    for j in range(0,24):
         b_w_pts.append([])
         for i in range(0,max_samples):
 
@@ -229,8 +229,14 @@ def main():
     ############################################################################
     # Build the plot
     ############################################################################
+    print len(xpts)
+    print len(ypts)
+    print len(y_err_lo)
+    print len(y_err_hi)
+    print y_err_lo
+    print y_err_hi
     #my_plot = scatter(xpts, ypts, yerr=(y_err_lo,y_err_hi), s=30)
-    my_plot = errorbar(xpts, ypts, yerr=(y_err_lo,y_err_hi))
+    my_plot = errorbar(xpts, ypts, yerr=(y_err_lo,y_err_hi),fmt='o')
     #my_plot = errorbar(xpts, ypts)
     
     #formatter = ScalarFormatter()

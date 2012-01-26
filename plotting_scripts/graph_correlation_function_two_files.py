@@ -116,8 +116,8 @@ def main():
     xpts = []
     ypts = []
 
-    #ngalaxies = 40000.0
-    ngalaxies = 160000.0
+    ngalaxies = 40000.0
+    #ngalaxies = 160000.0
 
     dd_norm = ((ngalaxies*ngalaxies)-ngalaxies)/2.0
     rr_norm = ((ngalaxies*ngalaxies)-ngalaxies)/2.0
@@ -143,8 +143,8 @@ def main():
             w = (dd-(2*dr)+rr)/(rr)
 
             xpts.append(pts[0][0][i])
-            #ypts.append(w)
-            ypts.append(w*(pts[0][0][i]**0.79))
+            ypts.append(w)
+            #ypts.append(w*(pts[0][0][i]**0.79))
             #print "%f %f" % (degrees(pts[0][0][i]),w)
 
     print len(xpts)
