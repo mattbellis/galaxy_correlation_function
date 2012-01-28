@@ -64,6 +64,9 @@ def main():
     for i in range(1,2):
         division = 110 + i
         subplots.append(fig1.add_subplot(division))
+
+    fig1.subplots_adjust(left=0.13,bottom=0.18,right=0.95,wspace=0.4,hspace=0.4)
+
     
     ################################################################################
     ################################################################################
@@ -257,16 +260,29 @@ def main():
     #print yerr_lo
     #print yerr_hi
     yerr = [[],[]]
+    xerr = [[],[]]
     for lo,hi,p in zip(yerr_lo,yerr_hi,ypts):
         yerr[0].append(abs(p-lo))
         yerr[1].append(abs(p-hi))
+
+    npts = len(xpts)
+    for i,x in enumerate(xpts):
+        if i==0:
+            xerr[0].append(abs(x-xpts[i+1])/2.0)
+            xerr[1].append(abs(x-xpts[i+1])/2.0)
+        elif i==npts-1:
+            xerr[0].append(abs(x-xpts[i-1])/2.0)
+            xerr[1].append(abs(x-xpts[i-1])/2.0)
+        else:
+            xerr[0].append(abs(x-xpts[i-1])/2.0)
+            xerr[1].append(abs(x-xpts[i+1])/2.0)
 
 
     for i in range(len(xpts)):
             print "%f %f %f %f" % (xpts[i], ypts[i], yerr_lo[i], yerr_hi[i])
 
     #my_plot = scatter(xpts, ypts, yerr=(yerr_lo,yerr_hi), s=30)
-    my_plot = errorbar(xpts, ypts, yerr=(yerr[0],yerr[1]),fmt='o')
+    my_plot = errorbar(xpts, ypts, xerr=(xerr[0],xerr[1]),yerr=(yerr[0],yerr[1]),fmt='o',markersize=5,markerfacecolor='blue',linewidth=2)
     #my_plot = errorbar(xpts, ypts)
     
     #formatter = ScalarFormatter()
@@ -281,13 +297,19 @@ def main():
    
     #subplots[0].xaxis.set_major_formatter(formatter)
 
-    subplots[0].set_xlabel(r"$\theta$ (degrees)", fontsize=24, weight='bold')
-    subplots[0].set_ylabel(r"w($\theta$)", fontsize=24, weight='bold')
+    subplots[0].set_xlabel(r"$\theta$ (degrees)", fontsize=48, weight='bold')
+    subplots[0].set_ylabel(r"w($\theta$)", fontsize=48, weight='bold')
     subplots[0].set_xscale('log')
     subplots[0].set_yscale('log')
    
     subplots[0].set_xlim(0.01,100)
     subplots[0].set_ylim(0.01,100)
+
+    for tick in subplots[0].xaxis.get_major_ticks():
+        tick.label1.set_fontsize(24)
+    for tick in subplots[0].yaxis.get_major_ticks():
+        tick.label1.set_fontsize(24)
+
 
  
     #infile_basename = filename.split('/')[-1].split('.')[0] 
