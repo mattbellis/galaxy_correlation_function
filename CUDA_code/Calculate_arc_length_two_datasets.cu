@@ -127,6 +127,9 @@ int main(int argc, char **argv)
     float *d_alpha1, *d_delta1;
     float *h_alpha1, *h_delta1;
 
+    //float *d_bin_edges;
+    //float *h_bin_edges;
+
     int NUM_PARTICLES;
 
     if (argc < 4)
@@ -149,6 +152,31 @@ int main(int argc, char **argv)
         two_different_files = 0;
         printf("Using the same file!\n");
     }
+
+    //////////////////////////////////////////////////////////////////////
+    // Read in the file that defines the bin edges.
+    ////////////////////////////////////////////////////////////////////////////
+
+    /*
+    FILE *binning_file = NULL;
+    if (argc>4)
+    {
+        binning_file = fopen(argv[4],"r");
+    }
+
+    int nbins;
+    fscanf(binning_file, "%d", &nbins);
+
+    int size = nbins * sizeof(float);    
+    printf("SIZE0 # particles: %d\n",nbins+1);
+
+    h_bin_edges = (float*)malloc(size);
+
+    for(int i=0; i<nbins; i++)
+    {
+        fscanf(infile0, "%f", &h_bin_edges[i]);
+    }
+    */
 
     //////////////////////////////////////////////////////////////////////
     // Read in the cluster_data file
