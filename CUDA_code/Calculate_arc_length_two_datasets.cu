@@ -10,34 +10,43 @@
 using namespace std;
 
 #define SUBMATRIX_SIZE 10000
-//#define NUM_BIN 5000
-//#define HIST_MIN 0.0
-//#define HIST_MAX 3.5 
-#define NUM_BIN 27 // for log binning
-//#define NUM_BIN 37 // for log binning
-#define HIST_MIN 0.0 // for degrees
-#define HIST_MAX 100.0 // for degrees
+#define DEFAULT_NBINS 27 // for log binning
 
 #define CONV_FACTOR 57.2957795 // 180/pi
 
-//float bin_edges[30] = {0.001000,0.001585,0.002512,0.003981,0.006310,0.010000,0.010000,0.015849,0.025119,0.039811,0.063096,0.100000,0.100000,0.158489,0.251189,0.398107,0.630957,1.000000,1.000000,1.584893,2.511886,3.981072,6.309573,10.000000,10.000000,15.848932,25.118864,39.810717,63.095734,100.000000};
-
 ////////////////////////////////////////////////////////////////////////
-__global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, int yind, int *dev_hist, float* dev_bin_edges, bool two_different_files=1)
+// Kernel to calculate angular distances between galaxies and histogram
+// the distances.
+////////////////////////////////////////////////////////////////////////
+__global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, int yind, int *dev_hist, int nbins, float* dev_bin_edges, bool two_different_files=1)
 {
 
-    //float bin_edges[30] = {0.001000,0.001585,0.002512,0.003981,0.006310,0.010000,0.010000,0.015849,0.025119,0.039811,0.063096,0.100000,0.100000,0.158489,0.251189,0.398107,0.630957,1.000000,1.000000,1.584893,2.511886,3.981072,6.309573,10.000000,10.000000,15.848932,25.118864,39.810717,63.095734,100.000000};
+    ////////////////////////////////////////////////////////////////////////////
+    // Idx will keep track of which thread is being calculated within a given 
+    // warp.
+    ////////////////////////////////////////////////////////////////////////////
+    int idx = blockIdx.x * blockDim.x + threadIdx.x; // This should range to SUBMATRIX_SIZE
 
-    // For 27
-    float bin_edges[NUM_BIN] = {0.0000,0.001000,0.001585,0.002512,0.003981,0.006310,0.010000,0.015849,0.025119,0.039811,0.063096,0.100000,0.158489,0.251189,0.398107,0.630957,1.000000,1.584893,2.511886,3.981072,6.309573,10.000000,15.848932,25.118864,39.810717,63.095734,100.000000};
-
-    // For 37
-    //float bin_edges[NUM_BIN] = {0.0000,0.001000,0.001389,0.001931,0.002683,0.003728,0.005179,0.007197,0.010000,0.013895,0.019307,0.026827,0.037276,0.051795,0.071969,0.100000,0.138950,0.193070,0.268270,0.372759,0.517947,0.719686,1.000000,1.389495,1.930698,2.682696,3.727594,5.179475,7.196857,10.000000,13.894955,19.306977,26.826958,37.275937,51.794747,71.968567,100.000000};
-
-
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
     int thread_idx = idx;
     idx += xind;
+
+    int i=0;
+    int j=0;
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Copy over a local version of the bin edges. This will prevent threads
+    // from accessing the same memory that holds this information.
+    ////////////////////////////////////////////////////////////////////////////
+    float bin_edges[1024]; // This is hard-coded and will result in bugs if a histogram
+                           // with greater than 1024 bins is used.
+    int bin_offset = thread_idx*nbins;
+    for (i=0;i<nbins;i++)
+    {
+        bin_edges[i] = dev_bin_edges[i+bin_offset];
+    }
+
+    float hist_min = bin_edges[0];
+    float hist_max = bin_edges[nbins-1];
 
     float alpha = a0[idx], delta0 = d0[idx];
     float cos_d0 = cos(delta0), sin_d0 = sin(delta0), dist;
@@ -50,7 +59,7 @@ __global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, i
     float cos_d1, sin_d1, numer, denom, mult1, mult2;    
 
     bool do_calc = 1;
-    for(int i=yind; i<ymax; i++)
+    for(i=yind; i<ymax; i++)
     {
         if (two_different_files)
         {
@@ -86,19 +95,17 @@ __global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, i
             dist = atan2(numer,denom);  
             dist *= CONV_FACTOR;  // Convert to degrees
 
-            if(dist < HIST_MIN)
+            if(dist < hist_min)
                 bin_index = 0; 
-            else if(dist >= HIST_MAX)
-                bin_index = NUM_BIN + 1;
+            else if(dist >= hist_max)
+                bin_index = nbins + 1;
             else
             {
-                //bin_index = int(((dist - HIST_MIN) * NUM_BIN / HIST_MAX) +1);    
+                //bin_index = int(((dist - hist_min) * nbins / hist_max) +1);    
                 bin_index = 0;
-                for (int j=0;j<NUM_BIN-1;j++)
+                for (j=0;j<nbins-1;j++)
                 {
-                    //bin_index = 5;
-                    //if (dist>=0.1*j && dist<0.1*(j+1))
-                    //if (dist>=dev_bin_edges[j] && dist<dev_bin_edges[j+1])
+                    // This works
                     if (dist>=bin_edges[j] && dist<bin_edges[j+1])
                     {
                         bin_index = j+1;
@@ -107,7 +114,7 @@ __global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, i
                 }
             }
 
-            offset = ((NUM_BIN+2)*thread_idx);
+            offset = ((nbins+2)*thread_idx);
             bin_index += offset;
 
             dev_hist[bin_index]++;
@@ -118,6 +125,8 @@ __global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, i
 
 ////////////////////////////////////////////////////////////////////////
 
+////////////////////////////////////////////////////////////////////////
+// Main
 ////////////////////////////////////////////////////////////////////////
 int main(int argc, char **argv)
 {
@@ -132,9 +141,7 @@ int main(int argc, char **argv)
     char *binning_filename = NULL;
     FILE *binning_file = NULL;
 
-    int size;
-
-    while ((c = getopt(argc, argv, "ab:f:o:")) != -1) {
+    while ((c = getopt(argc, argv, "ab:o:")) != -1) {
         switch(c) {
             case 'a':
                 printf("a is set\n");
@@ -142,10 +149,6 @@ int main(int argc, char **argv)
             case 'b':
                 binning_filename = optarg;
                 printf("Using binning information from file: %s\n",binning_filename);
-                break;
-            case 'f':
-                filename = optarg;
-                printf("filename is %s\n", filename);
                 break;
             case 'o':
                 outfilename = optarg;
@@ -201,9 +204,18 @@ int main(int argc, char **argv)
         two_different_files = 0;
         printf("Using the same file!\n");
     }
+    printf("\n");
     ////////////////////////////////////////////////////////////////////////////
     // Now get the info from the device.
     ////////////////////////////////////////////////////////////////////////////
+    printf("\n------ CUDA device diagnostics ------\n\n");
+
+    int tot_gals = 40000;
+    int nx = SUBMATRIX_SIZE;
+    int ncalc = nx * nx;
+    int gpu_mem_needed = int(tot_gals * sizeof(float)) * 5; // need to allocate gamma1, gamma2, ra, dec and output.
+    printf("Requirements: %d calculations and %d bytes memory on the GPU \n\n", ncalc, gpu_mem_needed);
+
     int deviceCount = 0;
     cudaError_t error_id = cudaGetDeviceCount(&deviceCount);
     if (error_id != cudaSuccess) {
@@ -237,9 +249,39 @@ int main(int argc, char **argv)
                 deviceProp.maxGridSize[1],
                 deviceProp.maxGridSize[2]);
 
+        // does this device have enough capcacity for the calculation?
+        printf("\n*************\n");
+
+        // check memory
+        if((unsigned long long) deviceProp.totalGlobalMem < gpu_mem_needed) printf(" FAILURE: Not eneough memeory on device for this calculation! \n");
+        else
+        {
+            printf("Hurrah! This device has enough memory to perform this calculation\n");
+
+            // check # threads
+
+            int threadsPerBlock = deviceProp.maxThreadsPerBlock; // maximal efficiency exists if we use max # threads per block.
+            int blocksPerGrid = int(ceil(ncalc / threadsPerBlock)); // need nx*nx threads total
+            if(deviceProp.maxThreadsDim[0] >blocksPerGrid) printf("FAILURE: Not enough threads on the device to do this calculation!\n");
+            else
+            {
+                printf("Hurrah! This device supports enough threads to do this calculation\n");
+                // how many kernels can we run at once on this machine?
+                int n_mem = floor(deviceProp.totalGlobalMem / float(gpu_mem_needed));
+                int n_threads = floor(threadsPerBlock * deviceProp.maxThreadsDim[0]*deviceProp.maxThreadsDim[1] / float(ncalc) ); // max # threads possible?
+
+                printf("%d %d  \n",  n_threads, deviceProp.maxThreadsDim[0]);
+
+                int max_kernels = 0;
+                n_mem<n_threads ? max_kernels = n_mem : max_kernels = n_threads;
+
+                printf(" you can run %d kernels at a time on this device without overloading the resources \n", max_kernels);
+            }
+        }
+
     }
 
-
+    printf("\n------ End CUDA device diagnostics ------\n\n");
     ////////////////////////////////////////////////////////////////////////////
 
     float *d_alpha0, *d_delta0;
@@ -258,14 +300,15 @@ int main(int argc, char **argv)
     ////////////////////////////////////////////////////////////////////////////
 
     int default_nbins = 27;
-    float default_bin_edges[NUM_BIN] = {0.0000,0.001000,0.001585,0.002512,0.003981,0.006310,0.010000,0.015849,0.025119,0.039811,0.063096,0.100000,0.158489,0.251189,0.398107,0.630957,1.000000,1.584893,2.511886,3.981072,6.309573,10.000000,15.848932,25.118864,39.810717,63.095734,100.000000};
+    float default_bin_edges[DEFAULT_NBINS] = {0.0000,0.001000,0.001585,0.002512,0.003981,0.006310,0.010000,0.015849,0.025119,0.039811,0.063096,0.100000,0.158489,0.251189,0.398107,0.630957,1.000000,1.584893,2.511886,3.981072,6.309573,10.000000,15.848932,25.118864,39.810717,63.095734,100.000000};
 
     int nbins=0;
+    int size_bin_edges_array=0;
     float temp_bin_edges[4096];
     //FILE *binning_file = NULL;
     if (binning_filename != NULL)
     {
-        printf("BBBBBBBBBBBB: %s\n",binning_filename);
+        printf("Binning filename: %s\n",binning_filename);
         binning_file = fopen(binning_filename,"r");
 
         while(fscanf(binning_file, "%f", &temp_bin_edges[nbins])!=EOF)
@@ -274,12 +317,19 @@ int main(int argc, char **argv)
         }
 
         // Copy over the temp bin edges into the host array.
-        size = nbins * sizeof(float);    
-        h_bin_edges = (float*)malloc(size);
-        for (int i=0;i<nbins;i++)
+        // Note we are going to have one array of the bin edges for
+        // *each thread*.
+        size_bin_edges_array = nbins * sizeof(float)*SUBMATRIX_SIZE;
+        h_bin_edges = (float*)malloc(size_bin_edges_array);
+        printf("Size of host bin edges array: %d bytes\n",size_bin_edges_array);
+        for (int i=0;i<SUBMATRIX_SIZE;i++)
         {
-            h_bin_edges[i] = temp_bin_edges[i];
-            printf("h_bin_edges: %3d %f\n",i,h_bin_edges[i]);
+            int thread_index = i*nbins;
+            for (int j=0;j<nbins;j++)
+            {
+                h_bin_edges[j+thread_index] = temp_bin_edges[j];
+                //printf("h_bin_edges: %3d %f\n",j+thread_index,h_bin_edges[j+thread_index]);
+            }
         }
     }
     else
@@ -287,133 +337,114 @@ int main(int argc, char **argv)
         // No file containing bin edges was passed in on the 
         // command line, so use the defaults.
         nbins = default_nbins;
-        size = nbins * sizeof(float);    
-        h_bin_edges = (float*)malloc(size);
-        for (int i=0;i<nbins;i++)
+        //size = nbins * sizeof(float);    
+        //h_bin_edges = (float*)malloc(size);
+        size_bin_edges_array = nbins * sizeof(float)*SUBMATRIX_SIZE;
+        h_bin_edges = (float*)malloc(size_bin_edges_array);
+        printf("Size of host bin edges array: %d bytes\n",size_bin_edges_array);
+        for (int i=0;i<SUBMATRIX_SIZE;i++)
         {
-            h_bin_edges[i] = default_bin_edges[i];
-            printf("h_bin_edges: %3d %f\n",i,h_bin_edges[i]);
+            int thread_index = i*nbins;
+            for (int j=0;j<nbins;j++)
+            {
+                h_bin_edges[j+thread_index] = default_bin_edges[j];
+                //printf("h_bin_edges: %3d %f\n",j+thread_index,h_bin_edges[j+thread_index]);
+            }
         }
+        //for (int i=0;i<nbins;i++)
+        //{
+        //h_bin_edges[i] = default_bin_edges[i];
+        ////printf("h_bin_edges: %3d %f\n",i,h_bin_edges[i]);
+        //}
     }
+    float hist_min = h_bin_edges[0];
+    float hist_max = h_bin_edges[nbins-1];
 
-    /*
-       int size = nbins * sizeof(float);    
-       printf("SIZE0 # GALAXIES: %d\n",nbins+1);
-
-       h_bin_edges = (float*)malloc(size);
-
-       for(int i=0; i<nbins; i++)
-       {
-       fscanf(infile0, "%f", &h_bin_edges[i]);
-       }
-     */
-
-    //////////////////////////////////////////////////////////////////////
-    // Read in the cluster_data file
+    ////////////////////////////////////////////////////////////////////////////
+    // Finished defining the bin edges.
     ////////////////////////////////////////////////////////////////////////////
 
-    char axis_titles[256];
-    char dummy[256];
-
+    //////////////////////////////////////////////////////////////////////
+    // Read in the galaxy files.
     ////////////////////////////////////////////////////////////////////////////
     // Read in the first file
     ////////////////////////////////////////////////////////////////////////////
 
-    fscanf(infile0, "%s %s %s", &axis_titles, &dummy, &axis_titles);
+    //fscanf(infile0, "%s %s %s", &axis_titles, &dummy, &axis_titles);
     fscanf(infile0, "%d", &NUM_GALAXIES);
 
-    size = NUM_GALAXIES * sizeof(float);    
+    int size_of_galaxy_array = NUM_GALAXIES * sizeof(float);    
     printf("SIZE 0 # GALAXIES: %d\n",NUM_GALAXIES);
 
-    h_alpha0 = (float*)malloc(size);
-    h_delta0 = (float*)malloc(size);
+    h_alpha0 = (float*)malloc(size_of_galaxy_array);
+    h_delta0 = (float*)malloc(size_of_galaxy_array);
 
     for(int i=0; i<NUM_GALAXIES; i++)
     {
-        fscanf(infile0, "%f %s %f %s ", &h_alpha0[i], &dummy, &h_delta0[i], &dummy);
-        //fscanf(infile, "%f%s %f ", &h_alpha[i], &dummy, &h_delta[i]);
-        //printf("%e %s %e\n", h_alpha0[i], dummy, h_delta0[i]);
+        fscanf(infile0, "%f %f", &h_alpha0[i], &h_delta0[i]);
+        //printf("%e %e\n", h_alpha0[i], h_delta0[i]);
     }
 
     ////////////////////////////////////////////////////////////////////////////
     // Read in the second file
     ////////////////////////////////////////////////////////////////////////////
 
-    fscanf(infile1, "%s %s %s", &axis_titles, &dummy, &axis_titles);
+    //fscanf(infile1, "%s %s %s", &axis_titles, &dummy, &axis_titles);
     fscanf(infile1, "%d", &NUM_GALAXIES);
     printf("SIZE 1 # GALAXIES: %d\n",NUM_GALAXIES);
 
-    h_alpha1 = (float*)malloc(size);
-    h_delta1 = (float*)malloc(size);
+    h_alpha1 = (float*)malloc(size_of_galaxy_array);
+    h_delta1 = (float*)malloc(size_of_galaxy_array);
 
     for(int i=0; i<NUM_GALAXIES; i++)
     {
-        fscanf(infile1, "%f %s %f %s ", &h_alpha1[i], &dummy, &h_delta1[i], &dummy);
-        //fscanf(infile, "%f%s %f ", &h_alpha[i], &dummy, &h_delta[i]);
-        //printf("%e %s %e\n", h_alpha1[i], dummy, h_delta1[i]);
+        fscanf(infile1, "%f %f", &h_alpha1[i], &h_delta1[i]);
+        //printf("%e %e\n", h_alpha1[i], h_delta1[i]);
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    //allocation of histogram
+    // Allocation of histogram
     ///////////////////////////////////////////////////////////////////////////
 
     int *hist, *dev_hist;
-    // Original
-    //int size_hist = SUBMATRIX_SIZE * (NUM_BIN+2);
-    //int size_hist_bytes = size_hist*sizeof(int);
-
-    // Log binning
-    //float h_bin_edges[30] = {0.001000,0.001585,0.002512,0.003981,0.006310,0.010000,0.010000,0.015849,0.025119,0.039811,0.063096,0.100000,0.100000,0.158489,0.251189,0.398107,0.630957,1.000000,1.000000,1.584893,2.511886,3.981072,6.309573,10.000000,10.000000,15.848932,25.118864,39.810717,63.095734,100.000000};
-
-    ////////////////////////////////////////////////////////////////////////////
-    // For 27 bins
-    ////////////////////////////////////////////////////////////////////////////
-    //float h_bin_edges[NUM_BIN] = {0.0000,0.001000,0.001585,0.002512,0.003981,0.006310,0.010000,0.015849,0.025119,0.039811,0.063096,0.100000,0.158489,0.251189,0.398107,0.630957,1.000000,1.584893,2.511886,3.981072,6.309573,10.000000,15.848932,25.118864,39.810717,63.095734,100.000000};
-
-    // For 37 bins
-    //float h_bin_edges[NUM_BIN] = {0.0000,0.001000,0.001389,0.001931,0.002683,0.003728,0.005179,0.007197,0.010000,0.013895,0.019307,0.026827,0.037276,0.051795,0.071969,0.100000,0.138950,0.193070,0.268270,0.372759,0.517947,0.719686,1.000000,1.389495,1.930698,2.682696,3.727594,5.179475,7.196857,10.000000,13.894955,19.306977,26.826958,37.275937,51.794747,71.968567,100.000000};
-
-    /*
-       for (int i=0;i<NUM_BIN;i++)
-       {
-       printf("%d %f\n",i,h_bin_edges[i]);
-       }
-       printf("\n");
-     */
     float *dev_bin_edges;
-    cudaMalloc((void **) &dev_bin_edges, (NUM_BIN*sizeof(float)));
-    cudaMemset(dev_bin_edges, 0, NUM_BIN);
-    cudaMemcpy(dev_bin_edges, h_bin_edges, NUM_BIN, cudaMemcpyHostToDevice );
-    //int nbins = 30;
 
-    int size_hist = SUBMATRIX_SIZE * (NUM_BIN+2);
+    cudaMalloc((void **) &dev_bin_edges,size_bin_edges_array);
+    printf("Size of dev_bin_edges: %d bytes\n",size_bin_edges_array);
+    cudaMemset(dev_bin_edges, 0, nbins*SUBMATRIX_SIZE);
+    cudaMemcpy(dev_bin_edges, h_bin_edges,size_bin_edges_array, cudaMemcpyHostToDevice );
+
+    int size_hist = SUBMATRIX_SIZE * (nbins+2);
     int size_hist_bytes = size_hist*sizeof(int);
 
     hist = (int*)malloc(size_hist_bytes);
     memset(hist, 0, size_hist_bytes);
 
-    printf("size_hist: %d\n",size_hist_bytes);
+    printf("Size of histogram: %d bytes\n",size_hist_bytes);
     cudaMalloc((void **) &dev_hist, (size_hist_bytes));
     cudaMemset(dev_hist, 0, size_hist_bytes);
 
     unsigned long  *hist_array;
 
-    hist_array =  (unsigned long*)malloc((NUM_BIN+2) * sizeof(unsigned long));
-    memset(hist_array, 0, (NUM_BIN+2)*sizeof(unsigned long)); 
+    int hist_array_size = (nbins+2) * sizeof(unsigned long);
+    hist_array =  (unsigned long*)malloc(hist_array_size);
+    printf("Size of histogram array: %d bytes\n",hist_array_size);
+    memset(hist_array,0,hist_array_size); 
 
     ////////////////////////////////////////////////////////////////////////////
     // Define the grid and block size
     ////////////////////////////////////////////////////////////////////////////
     dim3 grid, block;
-    grid.x =100;
-    block.x = SUBMATRIX_SIZE/grid.x; //NUM_GALAXIES/block.x;
+    grid.x =100; // Is this the number of blocks?
+    block.x = SUBMATRIX_SIZE/grid.x; // Is this the number of threads per block? NUM_GALAXIES/block.x;
+    // SUBMATRIX is the number of threads per warp? Per kernel call?
     ////////////////////////////////////////////////////////////////////////////
 
-    cudaMalloc((void **) &d_alpha0, size );
-    cudaMalloc((void **) &d_delta0, size );
+    cudaMalloc((void **) &d_alpha0, size_of_galaxy_array );
+    cudaMalloc((void **) &d_delta0, size_of_galaxy_array );
 
-    cudaMalloc((void **) &d_alpha1, size );
-    cudaMalloc((void **) &d_delta1, size );
+    cudaMalloc((void **) &d_alpha1, size_of_galaxy_array );
+    cudaMalloc((void **) &d_delta1, size_of_galaxy_array );
 
     // Check to see if we allocated enough memory.
     if (0==d_alpha0 || 0==d_delta0 || 0==d_alpha1 || 0==d_delta1 || 0==dev_hist)
@@ -422,27 +453,30 @@ int main(int argc, char **argv)
         return 1;
     }
 
-
     // Initialize array to all 0's
-    cudaMemset(d_alpha0,0,size);
-    cudaMemset(d_delta0,0,size);
-    cudaMemset(d_alpha1,0,size);
-    cudaMemset(d_delta1,0,size);
+    cudaMemset(d_alpha0,0,size_of_galaxy_array);
+    cudaMemset(d_delta0,0,size_of_galaxy_array);
+    cudaMemset(d_alpha1,0,size_of_galaxy_array);
+    cudaMemset(d_delta1,0,size_of_galaxy_array);
 
-    cudaMemcpy(d_alpha0, h_alpha0, size, cudaMemcpyHostToDevice );
-    cudaMemcpy(d_delta0, h_delta0, size, cudaMemcpyHostToDevice );
-    cudaMemcpy(d_alpha1, h_alpha1, size, cudaMemcpyHostToDevice );
-    cudaMemcpy(d_delta1, h_delta1, size, cudaMemcpyHostToDevice );
+    cudaMemcpy(d_alpha0, h_alpha0, size_of_galaxy_array, cudaMemcpyHostToDevice );
+    cudaMemcpy(d_delta0, h_delta0, size_of_galaxy_array, cudaMemcpyHostToDevice );
+    cudaMemcpy(d_alpha1, h_alpha1, size_of_galaxy_array, cudaMemcpyHostToDevice );
+    cudaMemcpy(d_delta1, h_delta1, size_of_galaxy_array, cudaMemcpyHostToDevice );
 
     int x, y;
     int num_submatrices = NUM_GALAXIES / SUBMATRIX_SIZE;
+
+    printf("Breaking down the calculations.\n");
+    printf("Number of submatrices: %dx%d\n",num_submatrices,num_submatrices);
+    printf("Number of calculations per submatrices: %dx%d\n",SUBMATRIX_SIZE,SUBMATRIX_SIZE);
 
 
     int bin_index = 0;
     for(int k = 0; k < num_submatrices; k++)
     {
         y = k*SUBMATRIX_SIZE;
-        //        printf("%d %d\n",k,y);
+        //printf("%d %d\n",k,y);
         for(int j = 0; j < num_submatrices; j++)
         {
             x = j *SUBMATRIX_SIZE; 
@@ -451,34 +485,29 @@ int main(int argc, char **argv)
             //printf("%d %d\t\t%d %d\n",k,y,j,x);
             //printf("----\n");
 
+            // Set the histogram to all zeros each time.
             cudaMemset(dev_hist,0,size_hist_bytes);
 
-            distance<<<grid,block>>>(d_alpha0, d_delta0,d_alpha1, d_delta1, x, y, dev_hist, dev_bin_edges, two_different_files);
+            distance<<<grid,block>>>(d_alpha0, d_delta0,d_alpha1, d_delta1, x, y, dev_hist, nbins, dev_bin_edges, two_different_files);
             cudaMemcpy(hist, dev_hist, size_hist_bytes, cudaMemcpyDeviceToHost);
 
-
+            ////////////////////////////////////////////////////////////////////
+            // Sum up the histograms from each thread (hist).
+            ////////////////////////////////////////////////////////////////////
             for(int m=0; m<size_hist; m++)
             {
-
-                bin_index = m%(NUM_BIN+2);
-                //if(bin_index == 0)
-                //printf("\n");
-
-                //printf("%3i:%3i ", m, hist[m]);
-                //printf("%3i ", hist[m]);
-
+                bin_index = m%(nbins+2);
                 hist_array[bin_index] += hist[m];
             }    
-            //printf("\n");
         }  
     }
 
     unsigned long total = 0;
-    float  bin_width = (HIST_MAX - HIST_MIN) / NUM_BIN;
+    float  bin_width = (hist_max - hist_min) / nbins;
     float bins_mid = 0;
 
     fprintf(outfile, "%s %s\n", "Angular Distance(radians)","Number of Entries");      
-    for(int k=0; k<NUM_BIN+1; k++)
+    for(int k=0; k<nbins+1; k++)
     {
         //bins_mid = bin_width*(k - 0.5);
 
