@@ -161,7 +161,7 @@ def main():
 
     subplots[0].set_xlabel(r"$\theta$ (degrees)", fontsize=24, weight='bold')
     subplots[0].set_ylabel(r"w($\theta$)", fontsize=24, weight='bold')
-    #subplots[0].set_xscale('log')
+    subplots[0].set_xscale('log')
     #subplots[0].set_yscale('log')
    
     #subplots[0].set_xlim(0.01,100)
