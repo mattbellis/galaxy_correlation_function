@@ -6,10 +6,16 @@ npts = 1
 #lo = -3
 #hi =  2
 #max_pts = 6
-lo = 1.0
-hi =  4
-bin_width = 0.05
-max_pts = 50
+
+#lo = 1.0
+#hi =  4
+#bin_width = 0.05
+#max_pts = 50
+
+lo = 1e-4
+hi =  50.0
+bin_width = 1.0
+max_pts = 27
 i = lo
 while i < hi:
     

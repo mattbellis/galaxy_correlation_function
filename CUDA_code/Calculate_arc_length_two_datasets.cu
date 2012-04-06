@@ -18,7 +18,7 @@ using namespace std;
 // Kernel to calculate angular distances between galaxies and histogram
 // the distances.
 ////////////////////////////////////////////////////////////////////////
-__global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, int yind, int *dev_hist, float hist_min, float hist_max, int nbins, float bin_width, bool log_binning=0, bool two_different_files=1)
+__global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, int yind, int *dev_hist, float hist_min, float hist_max, int nbins, float bin_width, int log_binning=0, bool two_different_files=1)
 {
 
     ////////////////////////////////////////////////////////////////////////////
@@ -31,24 +31,6 @@ __global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, i
     idx += xind;
 
     int i=0;
-    //int j=0;
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Copy over a local version of the bin edges. This will prevent threads
-    // from accessing the same memory that holds this information.
-    ////////////////////////////////////////////////////////////////////////////
-    /*
-    float bin_edges[1024]; // This is hard-coded and will result in bugs if a histogram
-    // with greater than 1024 bins is used.
-    int bin_offset = thread_idx*nbins;
-    for (i=0;i<nbins;i++)
-    {
-        bin_edges[i] = dev_bin_edges[i+bin_offset];
-    }
-    */
-
-    //float hist_min = bin_edges[0];
-    //float hist_max = bin_edges[nbins-1];
 
     float alpha = a0[idx], delta0 = d0[idx];
     float cos_d0 = cos(delta0), sin_d0 = sin(delta0), dist;
@@ -102,30 +84,18 @@ __global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, i
             else if(dist >= hist_max)
                 bin_index = nbins + 1;
             else
-           if (!log_binning)
+           if (log_binning==0)
            {
                bin_index = int((dist-hist_min)/bin_width) + 1;
            }
-           else // log binning
+            else if (log_binning==1)// log binning
            {
                bin_index = int((log(dist)-log(hist_min))/bin_width) + 1;
            }
-
-            /*
-            {
-                //bin_index = int(((dist - hist_min) * nbins / hist_max) +1);    
-                bin_index = 0;
-                for (j=0;j<nbins-1;j++)
-                {
-                    // This works
-                    if (dist>=bin_edges[j] && dist<bin_edges[j+1])
-                    {
-                        bin_index = j+1;
-                        break;
-                    }
-                }
-            }
-            */
+            else if (log_binning==2)// log 10 binning
+           {
+               bin_index = int((log10(dist)-log10(hist_min))/bin_width) + 1;
+           }
 
             offset = ((nbins+2)*thread_idx);
             bin_index += offset;
@@ -158,13 +128,13 @@ int main(int argc, char **argv)
     float hist_upper_range = 0;
     int nbins = 100;
     float hist_bin_width = 0.05;
-    bool log_binning_flag = 0; // False
+    int log_binning_flag = 0; // False
 
     ////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////
 
 
-    while ((c = getopt(argc, argv, "ab:o:L:N:lw:")) != -1) {
+    while ((c = getopt(argc, argv, "ab:o:L:N:l:w:")) != -1) {
         switch(c) {
             case 'N':
                 printf("N is set\n");
@@ -179,7 +149,7 @@ int main(int argc, char **argv)
                 printf("Histogram bin width: %f\n",hist_bin_width);
                 break;
             case 'l':
-                log_binning_flag = 1;
+                log_binning_flag = atoi(optarg);
                 printf("Will use log binning.\n");
                 break;
             case 'b':
@@ -224,7 +194,7 @@ int main(int argc, char **argv)
                 temp_lo = hist_upper_range;
             }
         }
-        else
+        else if (log_binning_flag==1)
         {
             for (int i=0;i<nbins;i++)
             {
@@ -232,23 +202,23 @@ int main(int argc, char **argv)
                 temp_lo = hist_upper_range;
             }
         }
+        else if (log_binning_flag==2)
+        {
+            for (int i=0;i<nbins;i++)
+            {
+                hist_upper_range = pow(10,(log10(temp_lo) + hist_bin_width));
+                temp_lo = hist_upper_range;
+            }
+        }
     }
     printf("hist_upper_range: %f\n",hist_upper_range);
-
-    //printf ("%d\n", optind);
-    //printf ("%d\n", argc);
-    //printf ("%d\n", optind);
-    //printf ("%s\n", argv[optind]);
-    //printf ("%s\n", argv[optind+1]);
 
     FILE *infile0, *infile1, *outfile ;
     infile0 = fopen(argv[optind],"r");
     infile1 = fopen(argv[optind+1],"r");
-    //outfile = fopen(argv[3], "w");
 
     printf("Opening input file 0: %s\n",argv[optind]);
     printf("Opening input file 1: %s\n",argv[optind+1]);
-    //printf("Outfilename: %s\n",outfilename);
     outfile = fopen(outfilename, "w");
 
     ////////////////////////////////////////////////////////////////////////////
@@ -354,77 +324,6 @@ int main(int argc, char **argv)
     int NUM_GALAXIES;
 
     //////////////////////////////////////////////////////////////////////
-    // Read in the file that defines the bin edges.
-    ////////////////////////////////////////////////////////////////////////////
-
-    /*
-    int default_nbins = 27;
-    float default_bin_edges[DEFAULT_NBINS] = {0.0000,0.001000,0.001585,0.002512,0.003981,0.006310,0.010000,0.015849,0.025119,0.039811,0.063096,0.100000,0.158489,0.251189,0.398107,0.630957,1.000000,1.584893,2.511886,3.981072,6.309573,10.000000,15.848932,25.118864,39.810717,63.095734,100.000000};
-
-    int nbins=0;
-    int size_bin_edges_array=0;
-    float temp_bin_edges[4096];
-    //FILE *binning_file = NULL;
-    if (binning_filename != NULL)
-    {
-        printf("Binning filename: %s\n",binning_filename);
-        binning_file = fopen(binning_filename,"r");
-
-        while(fscanf(binning_file, "%f", &temp_bin_edges[nbins])!=EOF)
-        {
-            nbins++;
-        }
-
-        // Copy over the temp bin edges into the host array.
-        // Note we are going to have one array of the bin edges for
-        // *each thread*.
-        size_bin_edges_array = nbins * sizeof(float)*SUBMATRIX_SIZE;
-        h_bin_edges = (float*)malloc(size_bin_edges_array);
-        printf("Size of host bin edges array: %d bytes\n",size_bin_edges_array);
-        for (int i=0;i<SUBMATRIX_SIZE;i++)
-        {
-            int thread_index = i*nbins;
-            for (int j=0;j<nbins;j++)
-            {
-                h_bin_edges[j+thread_index] = temp_bin_edges[j];
-                //printf("h_bin_edges: %3d %f\n",j+thread_index,h_bin_edges[j+thread_index]);
-            }
-        }
-    }
-    else
-    {
-        // No file containing bin edges was passed in on the 
-        // command line, so use the defaults.
-        nbins = default_nbins;
-        //size = nbins * sizeof(float);    
-        //h_bin_edges = (float*)malloc(size);
-        size_bin_edges_array = nbins * sizeof(float)*SUBMATRIX_SIZE;
-        h_bin_edges = (float*)malloc(size_bin_edges_array);
-        printf("Size of host bin edges array: %d bytes\n",size_bin_edges_array);
-        for (int i=0;i<SUBMATRIX_SIZE;i++)
-        {
-            int thread_index = i*nbins;
-            for (int j=0;j<nbins;j++)
-            {
-                h_bin_edges[j+thread_index] = default_bin_edges[j];
-                //printf("h_bin_edges: %3d %f\n",j+thread_index,h_bin_edges[j+thread_index]);
-            }
-        }
-        //for (int i=0;i<nbins;i++)
-        //{
-        //h_bin_edges[i] = default_bin_edges[i];
-        ////printf("h_bin_edges: %3d %f\n",i,h_bin_edges[i]);
-        //}
-    }
-    float hist_min = h_bin_edges[0];
-    float hist_max = h_bin_edges[nbins-1];
-    */
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Finished defining the bin edges.
-    ////////////////////////////////////////////////////////////////////////////
-
-    //////////////////////////////////////////////////////////////////////
     // Read in the galaxy files.
     ////////////////////////////////////////////////////////////////////////////
     // Read in the first file
@@ -467,12 +366,6 @@ int main(int argc, char **argv)
     ///////////////////////////////////////////////////////////////////////////
 
     int *hist, *dev_hist;
-    //float *dev_bin_edges;
-
-    //cudaMalloc((void **) &dev_bin_edges,size_bin_edges_array);
-    //printf("Size of dev_bin_edges: %d bytes\n",size_bin_edges_array);
-    //cudaMemset(dev_bin_edges, 0, nbins*SUBMATRIX_SIZE);
-    //cudaMemcpy(dev_bin_edges, h_bin_edges,size_bin_edges_array, cudaMemcpyHostToDevice );
 
     int size_hist = SUBMATRIX_SIZE * (nbins+2);
     int size_hist_bytes = size_hist*sizeof(int);
@@ -579,14 +472,19 @@ int main(int argc, char **argv)
 
         //float lo = h_bin_edges[k];
         //float hi = h_bin_edges[k+1];
-        if (!log_binning_flag)
+        if (log_binning_flag==0)
         {
             hi = lo + hist_bin_width;
         }
-        else
+        else if (log_binning_flag==1)
         {
             //printf("lo: %f\t\tlog(lo): %f\n",lo,log(lo));
             hi = exp(log(lo) + hist_bin_width);
+        }
+        else if (log_binning_flag==2)
+        {
+            //printf("lo: %f\t\tlog10(lo): %f\n",lo,log10(lo));
+            hi = pow(10,(log10(lo) + hist_bin_width));
         }
 
         bins_mid = (hi+lo)/2.0;
@@ -614,7 +512,6 @@ int main(int argc, char **argv)
     cudaFree(d_alpha1);
     cudaFree(d_delta1);  
     cudaFree(dev_hist);
-    //cudaFree(dev_bin_edges);
 
     return 0;
 }  
