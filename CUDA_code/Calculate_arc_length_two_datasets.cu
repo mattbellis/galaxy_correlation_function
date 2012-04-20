@@ -18,7 +18,7 @@ using namespace std;
 // Kernel to calculate angular distances between galaxies and histogram
 // the distances.
 ////////////////////////////////////////////////////////////////////////
-__global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, int yind, int *dev_hist, float hist_min, float hist_max, int nbins, float bin_width, int log_binning=0, bool two_different_files=1)
+__global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, int yind, int *dev_hist, float hist_min, float hist_max, int nbins, float bin_width, int log_binning=0, bool two_different_files=1, float conv_factor_angle=57.2957795)
 {
 
     ////////////////////////////////////////////////////////////////////////////
@@ -32,8 +32,11 @@ __global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, i
 
     int i=0;
 
-    float alpha = a0[idx], delta0 = d0[idx];
-    float cos_d0 = cos(delta0), sin_d0 = sin(delta0), dist;
+    float alpha_rad = a0[idx];
+    float delta0 = d0[idx];
+    float cos_d0 = cos(delta0);
+    float sin_d0 = sin(delta0);
+    float dist;
 
     int ymax = yind + SUBMATRIX_SIZE;
     int bin_index = 0; 
@@ -41,6 +44,7 @@ __global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, i
 
     float a_diff, sin_a_diff, cos_a_diff;
     float cos_d1, sin_d1, numer, denom, mult1, mult2;    
+    float d1_rad;
 
     bool do_calc = 1;
     for(i=yind; i<ymax; i++)
@@ -59,13 +63,14 @@ __global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, i
         //if(idx > i) ///////// CHECK THIS
         if (do_calc)
         {
-            a_diff = a1[i] - alpha;
+            a_diff = a1[i] - alpha_rad;
+            d1_rad = d1[i];
 
             sin_a_diff = sin(a_diff);
             cos_a_diff = cos(a_diff);
 
-            sin_d1 = sin(d1[i]);
-            cos_d1 = cos(d1[i]);
+            sin_d1 = sin(d1_rad);
+            cos_d1 = cos(d1_rad);
 
             mult1 = cos_d1 * cos_d1 * sin_a_diff * sin_a_diff;
             mult2 = cos_d0 * sin_d1 - sin_d0 * cos_d1 * cos_a_diff;
@@ -77,7 +82,7 @@ __global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, i
 
             //dist = atan(num);  
             dist = atan2(numer,denom);  
-            dist *= CONV_FACTOR;  // Convert to degrees
+            dist *= conv_factor_angle;  // Convert to degrees or what have you.
 
             if(dist < hist_min)
                 bin_index = 0; 
@@ -130,11 +135,14 @@ int main(int argc, char **argv)
     float hist_bin_width = 0.05;
     int log_binning_flag = 0; // False
 
+    float scale_factor = 1.0; // For if we need to convert input to arcsec or arcmin
+    float conv_factor_angle = 57.2957795; // 180/pi // For if we need to convert arcdistance to arcsec or arcmin
+
     ////////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////////
 
 
-    while ((c = getopt(argc, argv, "ab:o:L:N:l:w:")) != -1) {
+    while ((c = getopt(argc, argv, "ab:o:L:N:l:w:sm")) != -1) {
         switch(c) {
             case 'N':
                 printf("N is set\n");
@@ -155,6 +163,20 @@ int main(int argc, char **argv)
             case 'b':
                 binning_filename = optarg;
                 printf("Using binning information from file: %s\n",binning_filename);
+                break;
+            case 's':
+                scale_factor = 206264.0; // To convert arcseconds to radians.
+                conv_factor_angle *= 3600.0; // convert radians to arcseconds.
+                printf("Reading in values assuming they are arcseconds.\n");
+                printf("scale_factor: %f\n",scale_factor);
+                printf("conv_factor_angle: %f\n",conv_factor_angle);
+                break;
+            case 'm':
+                scale_factor = 3437.74677; // To convert arcminutes to radians.
+                conv_factor_angle *= 60.0; // convert radians to arcminutes.
+                printf("scale_factor: %f\n",scale_factor);
+                printf("conv_factor_angle: %f\n",conv_factor_angle);
+                printf("Reading in values assuming they are arcminutes.\n");
                 break;
             case 'o':
                 outfilename = optarg;
@@ -337,10 +359,14 @@ int main(int argc, char **argv)
 
     h_alpha0 = (float*)malloc(size_of_galaxy_array);
     h_delta0 = (float*)malloc(size_of_galaxy_array);
+    float temp0, temp1;
 
     for(int i=0; i<NUM_GALAXIES; i++)
     {
-        fscanf(infile0, "%f %f", &h_alpha0[i], &h_delta0[i]);
+        fscanf(infile0, "%f %f", &temp0, &temp1);
+        h_alpha0[i] = temp0/scale_factor;
+        h_delta0[i] = temp1/scale_factor;
+        //fscanf(infile0, "%f %f", &h_alpha0[i]*scale_factor, &h_delta0[i]*scale_factor);
         //printf("%e %e\n", h_alpha0[i], h_delta0[i]);
     }
 
@@ -357,7 +383,10 @@ int main(int argc, char **argv)
 
     for(int i=0; i<NUM_GALAXIES; i++)
     {
-        fscanf(infile1, "%f %f", &h_alpha1[i], &h_delta1[i]);
+        fscanf(infile0, "%f %f", &temp0, &temp1);
+        h_alpha1[i] = temp0/scale_factor;
+        h_delta1[i] = temp1/scale_factor;
+        //fscanf(infile1, "%f %f", &h_alpha1[i]*scale_factor, &h_delta1[i]*scale_factor);
         //printf("%e %e\n", h_alpha1[i], h_delta1[i]);
     }
 
@@ -442,7 +471,7 @@ int main(int argc, char **argv)
             cudaMemset(dev_hist,0,size_hist_bytes);
 
 //__global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, int yind, int *dev_hist, float hist_min, float hist_max, int nbins, float bin_width, bool log_binning=0, bool two_different_files=1)
-            distance<<<grid,block>>>(d_alpha0, d_delta0,d_alpha1, d_delta1, x, y, dev_hist, hist_lower_range, hist_upper_range, nbins, hist_bin_width, log_binning_flag, two_different_files);
+            distance<<<grid,block>>>(d_alpha0, d_delta0,d_alpha1, d_delta1, x, y, dev_hist, hist_lower_range, hist_upper_range, nbins, hist_bin_width, log_binning_flag, two_different_files,conv_factor_angle);
             cudaMemcpy(hist, dev_hist, size_hist_bytes, cudaMemcpyDeviceToHost);
 
             ////////////////////////////////////////////////////////////////////
