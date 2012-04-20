@@ -1,0 +1,5 @@
+python graph_correlation_function_two_files.py \
+/home/bellis/galaxy_correlation_function/data/2MASS_study/logbinning_100k_data_data_minutes_as_input.dat \
+/home/bellis/galaxy_correlation_function/data/2MASS_study/logbinning_100k_data_mc_minutes_as_input.dat \
+/home/bellis/galaxy_correlation_function/data/2MASS_study/logbinning_100k_mc_mc_minutes_as_input.dat
+

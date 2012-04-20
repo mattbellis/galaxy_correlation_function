@@ -9,3 +9,6 @@ time ../../CUDA_code/Calculate_arc_length_two_datasets ~/Work/Astronomy/catalogs
 
 # Testing arcsecond calculations
 time ../../CUDA_code/Calculate_arc_length_two_datasets ~/Work/Astronomy/catalogs/Wechsler/wg100k_ra_dec_arcseconds.dat ~/Work/Astronomy/catalogs/Wechsler/wg100k_ra_dec_arcseconds.dat -o logbinning_test_data_data.dat -w 0.5 -L 0.0001 -N35 -l 1
+
+# This gives the right binning for the minutes
+time ../../CUDA_code/Calculate_arc_length_two_datasets /home/bellis/Work/Astronomy/catalogs/Wechsler/wg50k_ra_dec_arcminutes.dat /home/bellis/Work/Astronomy/catalogs/Wechsler/wg50k_ra_dec_arcminutes.dat -o logbinning_test_data_data.dat -w 0.05 -L 1.00 -N15 -l 1

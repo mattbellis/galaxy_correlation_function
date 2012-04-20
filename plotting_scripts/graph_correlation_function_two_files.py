@@ -116,7 +116,8 @@ def main():
     xpts = []
     ypts = []
 
-    ngalaxies = 40000.0
+    #ngalaxies = 40000.0
+    ngalaxies = 100000.0
     #ngalaxies = 160000.0
 
     dd_norm = ((ngalaxies*ngalaxies)-ngalaxies)/2.0
