@@ -89,6 +89,7 @@ __global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, i
             else if(dist >= hist_max)
                 bin_index = nbins + 1;
             else
+            {
            if (log_binning==0)
            {
                bin_index = int((dist-hist_min)/bin_width) + 1;
@@ -101,6 +102,7 @@ __global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, i
            {
                bin_index = int((log10(dist)-log10(hist_min))/bin_width) + 1;
            }
+            }
 
             offset = ((nbins+2)*thread_idx);
             bin_index += offset;
@@ -367,7 +369,8 @@ int main(int argc, char **argv)
         h_alpha0[i] = temp0/scale_factor;
         h_delta0[i] = temp1/scale_factor;
         //fscanf(infile0, "%f %f", &h_alpha0[i]*scale_factor, &h_delta0[i]*scale_factor);
-        //printf("%e %e\n", h_alpha0[i], h_delta0[i]);
+        if (i<10)
+        printf("%e %e\n", h_alpha0[i], h_delta0[i]);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -383,11 +386,12 @@ int main(int argc, char **argv)
 
     for(int i=0; i<NUM_GALAXIES; i++)
     {
-        fscanf(infile0, "%f %f", &temp0, &temp1);
+        fscanf(infile1, "%f %f", &temp0, &temp1);
         h_alpha1[i] = temp0/scale_factor;
         h_delta1[i] = temp1/scale_factor;
         //fscanf(infile1, "%f %f", &h_alpha1[i]*scale_factor, &h_delta1[i]*scale_factor);
-        //printf("%e %e\n", h_alpha1[i], h_delta1[i]);
+        if (i<10)
+        printf("%e %e\n", h_alpha1[i], h_delta1[i]);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -497,10 +501,12 @@ int main(int argc, char **argv)
     //printf("hist_bin_width: %f\n",hist_bin_width);
     for(int k=0; k<nbins+1; k++)
     {
-        //bins_mid = bin_width*(k - 0.5);
-
-        //float lo = h_bin_edges[k];
-        //float hi = h_bin_edges[k+1];
+        if (k==0)
+        {
+            fprintf(outfile, "Underflow below %.3e %s %lu \n", lo, ",",  hist_array[k]);
+        }
+        else
+        {
         if (log_binning_flag==0)
         {
             hi = lo + hist_bin_width;
@@ -522,7 +528,7 @@ int main(int argc, char **argv)
         total += hist_array[k];
 
         lo = hi;
-
+        }
     }
     printf("total: %lu \n", total);
 
