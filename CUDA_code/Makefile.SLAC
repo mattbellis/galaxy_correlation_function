@@ -2,14 +2,57 @@
 #
 # author      : Matt Bellis
 # date        : Jan., 2012
-# description : generic Makefile for making cuda programs
+# discription : generic Makefile for making cuda programs
 #
+#BIN               := a.out
+#BIN               := Calculate_arc_length
+BIN               := Calculate_arc_length_two_datasets
+
+#SDK_INSTALL_PATH  := /home/bellis/NVIDIA_GPU_Computing_SDK
+#CUDA_INSTALL_PATH := /usr/
+SDK_INSTALL_PATH  := ${HOME}/CUDA/SDK_4.0/
+CUDA_INSTALL_PATH := /opt/cuda/
+
+# flags
+
+INCLUDES          += -I. -I$(SDK_INSTALL_PATH)/C/common/inc/ -I$(CUDA_INSTALL_PATH)/include/
+LIBS              += -L. -L$(SDK_INSTALL_PATH)/C/lib/ -L$(CUDA_INSTALL_PATH)//usr/lib/x86_64-linux-gnu/
+LIBS              += -L$(CUDA_INSTALL_PATH)/lib64
+
+CXXFLAGS          := $(COMMONFLAGS)
+
+#LDFLAGS := -lSystem.B -lm -lcudart -lcutil_x86_64 
+#LDFLAGS := -lm -lcudart 
+LDFLAGS := -lcudart
 
 # compilers
-NVCC              := nvcc 
+#NVCC              := nvcc -arch sm_11 $(COMMONFLAGS) --device-emulation
+NVCC              := $(CUDA_INSTALL_PATH)/bin/nvcc -arch sm_11 $(COMMONFLAGS)
 
-%: %.cu
-	$(NVCC) -o $@ $@.cu
+# files
+CPP_SOURCES       := 
+#CU_SOURCES        := Calculate_arc_length.cu
+CU_SOURCES        := Calculate_arc_length_two_datasets.cu
+HEADERS           := $(wildcard *.h)
+CPP_OBJS          := $(patsubst %.cpp, %.o, $(CPP_SOURCES))
+CU_OBJS           := $(patsubst %.cu, %.cu_o, $(CU_SOURCES))
+
+%.cu_o : %.cu
+	$(NVCC) -c $(INCLUDES) -o $@ $<
+
+%.o: %.cpp
+	$(CXX) -c $(CXXFLAGS) $(INCLUDES) -o $@ $<
+
+$(BIN): $(CPP_OBJS) $(CU_OBJS)
+	$(CXX) -fPIC -o $(BIN) $(CU_OBJS) $(CPP_OBJS) $(LDFLAGS) $(INCLUDES) $(LIBS)
+
+#%: %.cu_o
+	#$(CXX) -fPIC -o $* $(CU_OBJS) $(CPP_OBJS) $(LDFLAGS) $(INCLUDES) $(LIBS)
+
+#util.o: util.cpp util.h
+#mytestroot.o: mytestroot.cpp 
+#mytestroot_gpu.cu_o: mytestroot_gpu.cu
+
 
 clean:
-	rm -f Calculate_arc_length_two_datasets Calculate_arc_length *.o *.cu_o *.cubin
+	rm -f $(BIN) *.o *.cu_o *.cubin
