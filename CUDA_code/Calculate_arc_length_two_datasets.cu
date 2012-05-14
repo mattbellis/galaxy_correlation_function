@@ -369,8 +369,8 @@ int main(int argc, char **argv)
         h_alpha0[i] = temp0/scale_factor;
         h_delta0[i] = temp1/scale_factor;
         //fscanf(infile0, "%f %f", &h_alpha0[i]*scale_factor, &h_delta0[i]*scale_factor);
-        if (i<10)
-        printf("%e %e\n", h_alpha0[i], h_delta0[i]);
+        //if (i<10)
+        //printf("%e %e\n", h_alpha0[i], h_delta0[i]);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -390,8 +390,8 @@ int main(int argc, char **argv)
         h_alpha1[i] = temp0/scale_factor;
         h_delta1[i] = temp1/scale_factor;
         //fscanf(infile1, "%f %f", &h_alpha1[i]*scale_factor, &h_delta1[i]*scale_factor);
-        if (i<10)
-        printf("%e %e\n", h_alpha1[i], h_delta1[i]);
+        //if (i<10)
+        //printf("%e %e\n", h_alpha1[i], h_delta1[i]);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -493,7 +493,7 @@ int main(int argc, char **argv)
     //float  bin_width = (hist_upper_range - hist_lower_range) / nbins;
     float bins_mid = 0;
 
-    fprintf(outfile, "%s %s\n", "Angular Distance(radians)","Number of Entries");      
+    //fprintf(outfile, "%s %s\n", "Angular Distance(radians)","Number of Entries");      
     float lo = hist_lower_range;
     float hi = 0;
     //printf("hist_lower_range: %f\n",hist_lower_range);
@@ -503,7 +503,7 @@ int main(int argc, char **argv)
     {
         if (k==0)
         {
-            fprintf(outfile, "Underflow below %.3e %s %lu \n", lo, ",",  hist_array[k]);
+            //fprintf(outfile, "Underflow below %.3e %s %lu \n", lo, ",",  hist_array[k]);
         }
         else
         {
