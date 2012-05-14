@@ -117,11 +117,15 @@ def main():
     ypts = []
 
     #ngalaxies = 40000.0
-    ngalaxies = 160000.0
+    ngalaxies = 100000.0
+    #ngalaxies = 160000.0
 
     dd_norm = ((ngalaxies*ngalaxies)-ngalaxies)/2.0
     rr_norm = ((ngalaxies*ngalaxies)-ngalaxies)/2.0
     dr_norm = (ngalaxies*ngalaxies)
+    #dd_norm = ngalaxies
+    #rr_norm = ngalaxies
+    #dr_norm = ngalaxies
 
     print dd_norm 
     print rr_norm 
@@ -143,9 +147,10 @@ def main():
             w = (dd-(2*dr)+rr)/(rr)
 
             xpts.append(pts[0][0][i])
-            #ypts.append(w)
-            ypts.append(w*(pts[0][0][i]**0.79))
+            ypts.append(w)
+            #ypts.append(w*(pts[0][0][i]**0.79))
             #print "%f %f" % (degrees(pts[0][0][i]),w)
+            print "%f %f" % (pts[0][0][i],w)
 
     print len(xpts)
     print len(ypts)
@@ -158,10 +163,10 @@ def main():
     subplots[0].set_xlabel(r"$\theta$ (degrees)", fontsize=24, weight='bold')
     subplots[0].set_ylabel(r"w($\theta$)", fontsize=24, weight='bold')
     subplots[0].set_xscale('log')
-    subplots[0].set_yscale('log')
+    #subplots[0].set_yscale('log')
    
-    subplots[0].set_xlim(0.01,100)
-    subplots[0].set_ylim(0.01,100)
+    #subplots[0].set_xlim(0.01,100)
+    #subplots[0].set_ylim(0.01,100)
 
  
     #infile_basename = filename.split('/')[-1].split('.')[0] 

@@ -36,10 +36,14 @@ Parse out only the RA and Dec and convert to radians.
 We make use of one of the python helper scripts for this.
 
 cd catalog
-../../../parse_real_astro_data/parse_RA_Decl_and_RedShift.py 2mrs_1175_done.dat ../../2MASS_study/2MASS_40k_RA_Dec.csv
+../../../../parse_real_astro_data/parse_RA_Decl_and_RedShift.py 2mrs_1175_done.dat ../../2MASS_study/2MASS_40k_RA_Dec.csv
 
 # Generate some appropriate Monte Carlo data. Use our helper file with the similar swath cut out. 
 cd generating_MC
 sh command_we_used_to_generate_the_random_data_for_comparison_with_the_slice_taken_out.sh
 mv MonteCarlo_40k_RA_Dec.csv ../data/2MASS_study/
 
+# Generate some bootstrapping samples
+cd boostrapping_scripts
+python make_bootstrapping_samples.py ../data/2MASS_study/2MASS_40k_RA_Dec.csv ../data/2MASS_study/bootstrapping_samples_2MASS_40k
+python make_bootstrapping_samples.py ../data/2MASS_study/MonteCarlo_40k_RA_Dec.csv ../data/2MASS_study/bootstrapping_samples_MonteCarlo_40k
