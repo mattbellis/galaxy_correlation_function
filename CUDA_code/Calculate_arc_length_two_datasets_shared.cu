@@ -10,6 +10,7 @@
 using namespace std;
 
 #define SUBMATRIX_SIZE 10000
+//#define SUBMATRIX_SIZE 1000
 #define DEFAULT_NBINS 27 // for log binning
 
 #define CONV_FACTOR 57.2957795 // 180/pi
@@ -18,7 +19,7 @@ using namespace std;
 // Kernel to calculate angular distances between galaxies and histogram
 // the distances.
 ////////////////////////////////////////////////////////////////////////
-__global__ void distance(volatile float *a0, volatile float *d0, volatile float *a1, volatile float *d1, int xind, int yind, int *dev_hist, float hist_min, float hist_max, int nbins, float bin_width, int log_binning=0, bool two_different_files=1, float conv_factor_angle=57.2957795)
+__global__ void distance(volatile float *a0, volatile float *d0, volatile float *a1, volatile float *d1, int xind, int yind, volatile int *dev_hist, float hist_min, float hist_max, int nbins, float bin_width, int log_binning=0, bool two_different_files=1, float conv_factor_angle=57.2957795)
 {
 
     ////////////////////////////////////////////////////////////////////////////
@@ -38,7 +39,6 @@ __global__ void distance(volatile float *a0, volatile float *d0, volatile float 
     float sin_d0 = sin(delta0);
     float dist;
 
-    int ymax = yind + SUBMATRIX_SIZE;
     int bin_index = 0; 
     int offset = 0;
 
@@ -47,6 +47,15 @@ __global__ void distance(volatile float *a0, volatile float *d0, volatile float 
     float d1_rad;
 
     bool do_calc = 1;
+
+    int ymax = yind + SUBMATRIX_SIZE;
+
+    __shared__ float shared_a1[100];
+    __shared__ float shared_d1[100];
+    shared_a1[threadIdx.x] = a1[idx];
+    shared_d1[threadIdx.x] = d1[idx];
+    syncthreads();
+
     for(i=yind; i<ymax; i++)
     {
         if (two_different_files)
@@ -63,6 +72,8 @@ __global__ void distance(volatile float *a0, volatile float *d0, volatile float 
         //if(idx > i) ///////// CHECK THIS
         if (do_calc)
         {
+            //a_diff = shared_a1[i] - alpha_rad;
+            //d1_rad = shared_d1[i];
             a_diff = a1[i] - alpha_rad;
             d1_rad = d1[i];
 
@@ -262,7 +273,7 @@ int main(int argc, char **argv)
     ////////////////////////////////////////////////////////////////////////////
     printf("\n------ CUDA device diagnostics ------\n\n");
 
-    int tot_gals = 40000;
+    int tot_gals = 100000;
     int nx = SUBMATRIX_SIZE;
     int ncalc = nx * nx;
     int gpu_mem_needed = int(tot_gals * sizeof(float)) * 5; // need to allocate gamma1, gamma2, ra, dec and output.
