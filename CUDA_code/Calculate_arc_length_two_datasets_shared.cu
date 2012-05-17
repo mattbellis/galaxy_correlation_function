@@ -9,7 +9,7 @@
 
 using namespace std;
 
-#define SUBMATRIX_SIZE 10000
+#define SUBMATRIX_SIZE 8192
 //#define SUBMATRIX_SIZE 1000
 #define DEFAULT_NBINS 27 // for log binning
 
@@ -31,6 +31,26 @@ __global__ void distance(volatile float *a0, volatile float *d0, volatile float 
     int thread_idx = idx;
     idx += xind;
 
+    ////////////////////////////////////////////////////////////////////////
+    // Shared memory stuff.
+    ////////////////////////////////////////////////////////////////////////
+    //__shared__ float shared_a1[100];
+    //__shared__ float shared_d1[100];
+    __shared__ int shared_hist[64];
+    //extern __shared__ int shared_hist[];
+    if(threadIdx.x==0)
+    {
+        for (int i=0;i<64;i++)
+            shared_hist[i] = 0;
+        //shared_hist[nbins*gridDim.x] = 0;
+        //shared_hist[32] = 0;
+    }
+
+    //shared_a1[threadIdx.x] = a1[idx];
+    //shared_d1[threadIdx.x] = d1[idx];
+    __syncthreads();
+    ////////////////////////////////////////////////////////////////////////
+
     int i=0;
 
     float alpha_rad = a0[idx];
@@ -50,11 +70,6 @@ __global__ void distance(volatile float *a0, volatile float *d0, volatile float 
 
     int ymax = yind + SUBMATRIX_SIZE;
 
-    __shared__ float shared_a1[100];
-    __shared__ float shared_d1[100];
-    shared_a1[threadIdx.x] = a1[idx];
-    shared_d1[threadIdx.x] = d1[idx];
-    syncthreads();
 
     for(i=yind; i<ymax; i++)
     {
@@ -101,27 +116,40 @@ __global__ void distance(volatile float *a0, volatile float *d0, volatile float 
                 bin_index = nbins + 1;
             else
             {
-           if (log_binning==0)
-           {
-               bin_index = int((dist-hist_min)/bin_width) + 1;
-           }
-            else if (log_binning==1)// log binning
-           {
-               bin_index = int((log(dist)-log(hist_min))/bin_width) + 1;
-           }
-            else if (log_binning==2)// log 10 binning
-           {
-               bin_index = int((log10(dist)-log10(hist_min))/bin_width) + 1;
-           }
+                if (log_binning==0)
+                {
+                    bin_index = int((dist-hist_min)/bin_width) + 1;
+                }
+                else if (log_binning==1)// log binning
+                {
+                    bin_index = int((log(dist)-log(hist_min))/bin_width) + 1;
+                }
+                else if (log_binning==2)// log 10 binning
+                {
+                    bin_index = int((log10(dist)-log10(hist_min))/bin_width) + 1;
+                }
             }
 
-            offset = ((nbins+2)*thread_idx);
-            bin_index += offset;
+            // This works!
+            //offset = ((nbins+2)*thread_idx);
+            //bin_index += offset;
 
-            dev_hist[bin_index]++;
+            //dev_hist[bin_index]++;
+
+            //bin_index += 64*blockIdx.x;
+            atomicAdd(&shared_hist[bin_index],1);
 
         }
     }
+
+    __syncthreads();
+
+    if(threadIdx.x==0)
+    {
+        for(int i=0;i<64;i++)
+            dev_hist[i+(blockIdx.x*64)]=shared_hist[i];
+    }
+
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -432,7 +460,7 @@ int main(int argc, char **argv)
     // Define the grid and block size
     ////////////////////////////////////////////////////////////////////////////
     dim3 grid, block;
-    grid.x =100; // Is this the number of blocks?
+    grid.x =128; // Is this the number of blocks?
     block.x = SUBMATRIX_SIZE/grid.x; // Is this the number of threads per block? NUM_GALAXIES/block.x;
     // SUBMATRIX is the number of threads per warp? Per kernel call?
     ////////////////////////////////////////////////////////////////////////////
@@ -485,7 +513,7 @@ int main(int argc, char **argv)
             // Set the histogram to all zeros each time.
             cudaMemset(dev_hist,0,size_hist_bytes);
 
-//__global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, int yind, int *dev_hist, float hist_min, float hist_max, int nbins, float bin_width, bool log_binning=0, bool two_different_files=1)
+            //__global__ void distance(float *a0, float *d0, float *a1, float *d1, int xind, int yind, int *dev_hist, float hist_min, float hist_max, int nbins, float bin_width, bool log_binning=0, bool two_different_files=1)
             distance<<<grid,block>>>(d_alpha0, d_delta0,d_alpha1, d_delta1, x, y, dev_hist, hist_lower_range, hist_upper_range, nbins, hist_bin_width, log_binning_flag, two_different_files,conv_factor_angle);
             cudaMemcpy(hist, dev_hist, size_hist_bytes, cudaMemcpyDeviceToHost);
 
@@ -518,27 +546,27 @@ int main(int argc, char **argv)
         }
         else
         {
-        if (log_binning_flag==0)
-        {
-            hi = lo + hist_bin_width;
-        }
-        else if (log_binning_flag==1)
-        {
-            //printf("lo: %f\t\tlog(lo): %f\n",lo,log(lo));
-            hi = exp(log(lo) + hist_bin_width);
-        }
-        else if (log_binning_flag==2)
-        {
-            //printf("lo: %f\t\tlog10(lo): %f\n",lo,log10(lo));
-            hi = pow(10,(log10(lo) + hist_bin_width));
-        }
+            if (log_binning_flag==0)
+            {
+                hi = lo + hist_bin_width;
+            }
+            else if (log_binning_flag==1)
+            {
+                //printf("lo: %f\t\tlog(lo): %f\n",lo,log(lo));
+                hi = exp(log(lo) + hist_bin_width);
+            }
+            else if (log_binning_flag==2)
+            {
+                //printf("lo: %f\t\tlog10(lo): %f\n",lo,log10(lo));
+                hi = pow(10,(log10(lo) + hist_bin_width));
+            }
 
-        bins_mid = (hi+lo)/2.0;
+            bins_mid = (hi+lo)/2.0;
 
-        fprintf(outfile, "%.3e %s %lu \n", bins_mid, ",",  hist_array[k]);
-        total += hist_array[k];
+            fprintf(outfile, "%.3e %s %lu \n", bins_mid, ",",  hist_array[k]);
+            total += hist_array[k];
 
-        lo = hi;
+            lo = hi;
         }
     }
     printf("total: %lu \n", total);

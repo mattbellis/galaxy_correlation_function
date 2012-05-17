@@ -28,7 +28,7 @@ LDFLAGS := -lcudart
 
 # compilers
 #NVCC              := nvcc -arch sm_11 $(COMMONFLAGS) --device-emulation
-NVCC              := $(CUDA_INSTALL_PATH)/bin/nvcc -arch sm_11 $(COMMONFLAGS)
+NVCC              := $(CUDA_INSTALL_PATH)/bin/nvcc -arch sm_20 $(COMMONFLAGS)
 
 # files
 CPP_SOURCES       := 
