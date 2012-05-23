@@ -9,9 +9,12 @@
 
 using namespace std;
 
-#define SUBMATRIX_SIZE 8192
+//#define SUBMATRIX_SIZE 8192
+#define SUBMATRIX_SIZE 16384
 //#define SUBMATRIX_SIZE 1000
-#define DEFAULT_NBINS 27 // for log binning
+#define DEFAULT_NBINS 254 // for log binning
+//#define DEFAULT_NBINS 126 // for log binning
+//#define DEFAULT_NBINS 62 // for log binning
 
 #define CONV_FACTOR 57.2957795 // 180/pi
 
@@ -34,20 +37,13 @@ __global__ void distance(volatile float *a0, volatile float *d0, volatile float 
     ////////////////////////////////////////////////////////////////////////
     // Shared memory stuff.
     ////////////////////////////////////////////////////////////////////////
-    //__shared__ float shared_a1[100];
-    //__shared__ float shared_d1[100];
-    __shared__ int shared_hist[64];
-    //extern __shared__ int shared_hist[];
+    __shared__ int shared_hist[DEFAULT_NBINS+2];
+    // Note that we only clear things out for the first thread on each block.
     if(threadIdx.x==0)
     {
-        for (int i=0;i<64;i++)
+        for (int i=0;i<nbins+2;i++)
             shared_hist[i] = 0;
-        //shared_hist[nbins*gridDim.x] = 0;
-        //shared_hist[32] = 0;
     }
-
-    //shared_a1[threadIdx.x] = a1[idx];
-    //shared_d1[threadIdx.x] = d1[idx];
     __syncthreads();
     ////////////////////////////////////////////////////////////////////////
 
@@ -146,8 +142,8 @@ __global__ void distance(volatile float *a0, volatile float *d0, volatile float 
 
     if(threadIdx.x==0)
     {
-        for(int i=0;i<64;i++)
-            dev_hist[i+(blockIdx.x*64)]=shared_hist[i];
+        for(int i=0;i<nbins+2;i++)
+            dev_hist[i+(blockIdx.x*(nbins+2))]=shared_hist[i];
     }
 
 }
@@ -172,7 +168,7 @@ int main(int argc, char **argv)
 
     float hist_lower_range = 0.0000001;
     float hist_upper_range = 0;
-    int nbins = 100;
+    int nbins = DEFAULT_NBINS;
     float hist_bin_width = 0.05;
     int log_binning_flag = 0; // False
 
@@ -460,7 +456,10 @@ int main(int argc, char **argv)
     // Define the grid and block size
     ////////////////////////////////////////////////////////////////////////////
     dim3 grid, block;
-    grid.x =128; // Is this the number of blocks?
+    // 128*4 = 512, the amount of memory needed for one histogram.
+    // 8192*4 = 32768 is max memory to ask for for the histograms.
+    // 8192/128 = 64, is is the right number of blocks?
+    grid.x = 8192/(DEFAULT_NBINS+2); // Is this the number of blocks?
     block.x = SUBMATRIX_SIZE/grid.x; // Is this the number of threads per block? NUM_GALAXIES/block.x;
     // SUBMATRIX is the number of threads per warp? Per kernel call?
     ////////////////////////////////////////////////////////////////////////////
