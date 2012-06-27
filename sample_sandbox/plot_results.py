@@ -39,6 +39,7 @@ def main():
     ################################################################################
     ################################################################################
     # Make a figure on which to plot stuff.
+    fig0 = plt.figure(figsize=(12, 8), dpi=90, facecolor='w', edgecolor='k')
     fig1 = plt.figure(figsize=(12, 8), dpi=90, facecolor='w', edgecolor='k')
     #
     # Usage is XYZ: X=how many rows to divide.
@@ -46,10 +47,14 @@ def main():
     #               Z=which plot to plot based on the first being '1'.
     # So '111' is just one plot on the main figure.
     ################################################################################
+
     subplots = []
     for i in range(1,2):
-        division = 110 + i
-        subplots.append(fig1.add_subplot(division))
+        subplots.append(fig0.add_subplot(1,1,1))
+        subplots.append(fig1.add_subplot(1,1,1))
+
+    fig0.subplots_adjust(top=0.95,right=0.95)
+    fig1.subplots_adjust(top=0.95,right=0.95)
     
     ################################################################################
     ################################################################################
@@ -80,9 +85,6 @@ def main():
     #formatter.set_scientific(True)
     #formatter.set_powerlimits((-4,4))
     
-    plt.xticks(fontsize=14, weight='bold')
-    plt.yticks(fontsize=14, weight='bold')
-
     x_index = int(options.x_index)
     y_index = int(options.y_index)
 
@@ -156,23 +158,41 @@ def main():
     print len(ypts)
     #print xpts
     #print ypts
-    my_plot = scatter(xpts, ypts, s=30)
     
     #subplots[0].xaxis.set_major_formatter(formatter)
 
-    subplots[0].set_xlabel(r"$\theta$ (degrees)", fontsize=24, weight='bold')
-    subplots[0].set_ylabel(r"w($\theta$)", fontsize=24, weight='bold')
+    for i in range(0,2):
+        plt.xticks(fontsize=24,weight='bold')
+        plt.yticks(fontsize=24,weight='bold')
+
+        subplots[i].scatter(xpts, ypts, s=30)
+        subplots[i].set_xlabel(r"$\theta$ (arcminutes)",fontsize=24, weight='bold')
+        subplots[i].set_ylabel(r"w($\theta$)",fontsize=24, weight='bold')
+
+        plt.xticks(fontsize=24,weight='bold')
+        plt.yticks(fontsize=24,weight='bold')
+
+        #labels = subplots[i].get_xticklabels()
+        #subplots[i].set_xticklabels(labels,size=24, weight='bold')
+        #subplots[i].set_yticklabels(labels,size=24, weight='bold')
+
+
+
     #subplots[0].set_xscale('log')
     #subplots[0].set_yscale('log')
    
-    #subplots[0].set_xlim(0.01,100)
+    subplots[0].set_xlim(-100,4000)
+    subplots[1].set_xlim(-10,130)
+    subplots[1].set_ylim(-0.7,0.8)
     #subplots[0].set_ylim(0.01,100)
 
  
     #infile_basename = filename.split('/')[-1].split('.')[0] 
-    infile_basename = "test_cf"
-    output_file_name = "plot_%s_x%d_y%d.png" % (infile_basename,x_index,y_index)
-    plt.savefig(output_file_name)
+    output_file_name = "acf_0.eps"
+    fig0.savefig(output_file_name)
+    output_file_name = "acf_1.eps"
+    fig1.savefig(output_file_name)
+
     plt.show()
 
 ################################################################################

@@ -3,8 +3,10 @@
 #set executable = '../CUDA_code/Calculate_arc_length_two_datasets'
 set executable = '../CUDA_code/Calculate_arc_length_two_datasets_shared'
 
-set mc   = '../sample_input_data/mc100k_ra_dec_arcmin.dat'
-set data = '../sample_input_data/wg100k_ra_dec_arcmin.dat'
+#set mc   = '../sample_input_data/mc100k_ra_dec_arcmin.dat'
+#set data = '../sample_input_data/wg100k_ra_dec_arcmin.dat'
+set mc   = '../sample_input_data/mc1000k_ra_dec_arcmin.dat'
+set data = '../sample_input_data/wg1000k_ra_dec_arcmin.dat'
 
 #set global_params = '-w 0.05 -L 1.00 -N187 -l 1 -m'
 set global_params = '-w 0.05 -L 1.00 -l 1 -m'
