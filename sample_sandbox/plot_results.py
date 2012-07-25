@@ -122,12 +122,9 @@ def main():
     ngalaxies = 100000.0
     #ngalaxies = 160000.0
 
-    #dd_norm = ((ngalaxies*ngalaxies)-ngalaxies)/2.0
-    #rr_norm = ((ngalaxies*ngalaxies)-ngalaxies)/2.0
-    #dr_norm = (ngalaxies*ngalaxies)
-    dd_norm = ngalaxies
-    rr_norm = ngalaxies
-    dr_norm = ngalaxies
+    dd_norm = ((ngalaxies*ngalaxies)-ngalaxies)/2.0
+    rr_norm = ((ngalaxies*ngalaxies)-ngalaxies)/2.0
+    dr_norm = (ngalaxies*ngalaxies)
 
     print dd_norm 
     print rr_norm 
@@ -183,7 +180,7 @@ def main():
    
     subplots[0].set_xlim(-100,4000)
     subplots[1].set_xlim(-10,130)
-    subplots[1].set_ylim(-0.7,0.8)
+    subplots[1].set_ylim(-0.7,2.8)
     #subplots[0].set_ylim(0.01,100)
 
  
